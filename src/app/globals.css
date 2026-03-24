@@ -4,11 +4,12 @@
 
 @custom-variant dark (&:is(.dark *));
 
-@theme inline {
+@theme {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-farro);
+  --font-serif: var(--font-balthazar);
+  --font-brand: var(--font-grenze-gotisch);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -45,75 +46,108 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+  --color-gold: var(--gold);
+  --color-xp: var(--xp);
+  --color-magic: var(--magic);
+  --color-streak: var(--streak);
 }
+
+/* ══════════════════════════════════════════════════════════════
+   HeroDex — Dark Fantasy Game Interface
+   Dark-only theme. All pages render as game UI panels.
+   ══════════════════════════════════════════════════════════════ */
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.809 0.105 251.813);
-  --chart-2: oklch(0.623 0.214 259.815);
-  --chart-3: oklch(0.546 0.245 262.881);
-  --chart-4: oklch(0.488 0.243 264.376);
-  --chart-5: oklch(0.424 0.199 265.638);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --background: #080c18;
+  --foreground: #c8bfa8;
+  --card: #0d1525;
+  --card-foreground: #c8bfa8;
+  --popover: #111a2e;
+  --popover-foreground: #c8bfa8;
+
+  --primary: #3ecfff;
+  --primary-foreground: #080c18;
+
+  --secondary: #152035;
+  --secondary-foreground: #c8bfa8;
+
+  --muted: #152035;
+  --muted-foreground: #7a6f60;
+
+  --accent: #1a2a42;
+  --accent-foreground: #c8bfa8;
+
+  --destructive: #e05550;
+
+  --border: #1a3050;
+  --input: #111a2e;
+  --ring: #3ecfff;
+
+  --chart-1: #3ecfff;
+  --chart-2: #c9a84c;
+  --chart-3: #4ade80;
+  --chart-4: #a78bfa;
+  --chart-5: #fb923c;
+
+  --radius: 0.375rem;
+
+  --sidebar: #0a1220;
+  --sidebar-foreground: #c8bfa8;
+  --sidebar-primary: #3ecfff;
+  --sidebar-primary-foreground: #080c18;
+  --sidebar-accent: #1a2a42;
+  --sidebar-accent-foreground: #c8bfa8;
+  --sidebar-border: #1a3050;
+  --sidebar-ring: #3ecfff;
+
+  /* Game-specific tokens */
+  --gold: #c9a84c;
+  --gold-bright: #e0c068;
+  --gold-dim: rgba(201, 168, 76, 0.25);
+  --gold-border: rgba(201, 168, 76, 0.55);
+  --gold-glow: rgba(201, 168, 76, 0.35);
+  --xp: #4ade80;
+  --magic: #a78bfa;
+  --streak: #fb923c;
+
+  --glow-primary: rgba(62, 207, 255, 0.3);
+  --glow-gold: rgba(201, 168, 76, 0.3);
+  --glow-xp: rgba(74, 222, 128, 0.3);
+  --glow-magic: rgba(167, 139, 250, 0.3);
+  --glow-streak: rgba(251, 146, 60, 0.3);
 }
 
+/* Keep .dark working for components that use dark: prefix */
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.809 0.105 251.813);
-  --chart-2: oklch(0.623 0.214 259.815);
-  --chart-3: oklch(0.546 0.245 262.881);
-  --chart-4: oklch(0.488 0.243 264.376);
-  --chart-5: oklch(0.424 0.199 265.638);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --background: #080c18;
+  --foreground: #c8bfa8;
+  --card: #0d1525;
+  --card-foreground: #c8bfa8;
+  --popover: #111a2e;
+  --popover-foreground: #c8bfa8;
+  --primary: #3ecfff;
+  --primary-foreground: #080c18;
+  --secondary: #152035;
+  --secondary-foreground: #c8bfa8;
+  --muted: #152035;
+  --muted-foreground: #7a6f60;
+  --accent: #1a2a42;
+  --accent-foreground: #c8bfa8;
+  --destructive: #e05550;
+  --border: #1a3050;
+  --input: #111a2e;
+  --ring: #3ecfff;
+}
+
+/* Next.js sets --font-farro / --font-grenze-gotisch on <body> via
+   class names, but @theme emits --font-sans/--font-brand on :root
+   where those vars aren't available yet.  Re-declare the resolved
+   theme tokens on body so every descendant can use them. */
+body {
+  --font-sans: var(--font-farro);
+  --font-serif: var(--font-balthazar);
+  --font-brand: var(--font-grenze-gotisch);
+  font-family: var(--font-farro), ui-sans-serif, system-ui, sans-serif;
 }
 
 @layer base {
@@ -126,4 +160,1274 @@
   html {
     @apply font-sans;
   }
+  button, [role="button"], input[type="submit"] {
+    font-family: var(--font-farro), sans-serif;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────
+   Dark scrollbar
+   ────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: var(--background); }
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--gold-dim); }
+
+/* ──────────────────────────────────────────────────────────
+   Game Shell — the root container
+   ────────────────────────────────────────────────────────── */
+.game-shell {
+  min-height: 100svh;
+  background:
+    radial-gradient(ellipse at 20% 10%, rgba(62, 207, 255, 0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 90%, rgba(124, 58, 237, 0.04) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 50%, rgba(201, 168, 76, 0.02) 0%, transparent 60%),
+    linear-gradient(180deg, #080c18 0%, #0a1220 50%, #080c18 100%);
+}
+
+/* Animated background orbs */
+.game-shell-orb {
+  position: fixed;
+  pointer-events: none;
+  border-radius: 9999px;
+  filter: blur(80px);
+  z-index: 0;
+}
+.game-shell-orb--1 {
+  top: -10rem;
+  left: -10rem;
+  width: 30rem;
+  height: 30rem;
+  background: rgba(62, 207, 255, 0.06);
+  animation: float-orb 25s ease-in-out infinite;
+}
+.game-shell-orb--2 {
+  bottom: -10rem;
+  right: -10rem;
+  width: 30rem;
+  height: 30rem;
+  background: rgba(124, 58, 237, 0.05);
+  animation: float-orb 30s ease-in-out infinite reverse;
+}
+
+@keyframes float-orb {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(30px, -20px) scale(1.05); }
+  66% { transform: translate(-20px, 15px) scale(0.95); }
+}
+
+/* ──────────────────────────────────────────────────────────
+   Game Banner — ornate top header with site name
+   ────────────────────────────────────────────────────────── */
+.game-banner {
+  position: relative;
+  z-index: 30;
+  display: flex;
+  justify-content: center;
+  padding: 0.5rem 1rem 0;
+}
+.game-banner-inner {
+  position: relative;
+  padding: 0.5rem 2rem 0.625rem;
+}
+
+.game-banner-link {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.125rem;
+  text-decoration: none;
+  transition: opacity 0.2s;
+}
+.game-banner-link:hover { opacity: 0.9; }
+.game-banner-logo {
+  height: 2.5rem;
+  width: auto;
+}
+@media (min-width: 768px) {
+  .game-banner-logo { height: 3rem; }
+}
+.game-banner-title {
+  font-family: var(--font-brand);
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  background: linear-gradient(135deg, #3ecfff, #a78bfa);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 0 24px rgba(62, 207, 255, 0.2));
+  line-height: 1;
+}
+.game-banner-subtitle {
+  font-family: var(--font-serif, serif);
+  font-size: 0.75rem;
+  color: var(--foreground);
+  letter-spacing: 0.04em;
+}
+@media (min-width: 768px) {
+  .game-banner-inner { padding: 0.75rem 3rem 0.875rem; }
+  .game-banner-title { font-size: 2rem; }
+  .game-banner-subtitle { font-size: 0.8rem; }
+}
+
+/* ──────────────────────────────────────────────────────────
+   Game NavBar — ornate bottom navigation bar
+   Always visible on all screen sizes
+   ────────────────────────────────────────────────────────── */
+.game-navbar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 40;
+  display: flex;
+  justify-content: center;
+  padding: 0 1rem calc(env(safe-area-inset-bottom));
+}
+@media (min-width: 1024px) {
+  .game-navbar {
+    padding: 0 2rem calc(env(safe-area-inset-bottom));
+  }
+}
+.game-navbar-inner {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 90rem;
+  background:
+    linear-gradient(180deg,
+      rgba(17, 26, 46, 0.98) 0%,
+      rgba(12, 21, 37, 1) 100%
+    );
+  border: 2px solid var(--gold-border);
+  border-bottom: none;
+  border-radius: 12px 12px 0 0;
+  padding: 0.375rem 0.5rem;
+  box-shadow:
+    inset 0 1px 0 rgba(201, 168, 76, 0.1),
+    inset 0 0 20px rgba(0, 0, 0, 0.3),
+    0 -4px 20px rgba(0, 0, 0, 0.5),
+    0 0 30px -10px rgba(201, 168, 76, 0.08);
+}
+/* Navbar corner ornaments */
+.game-navbar-corner {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  pointer-events: none;
+  z-index: 2;
+}
+.game-navbar-corner--tl {
+  top: -2px; left: -2px;
+  border-top: 3px solid var(--gold-bright);
+  border-left: 3px solid var(--gold-bright);
+  border-top-left-radius: 6px;
+}
+.game-navbar-corner--tr {
+  top: -2px; right: -2px;
+  border-top: 3px solid var(--gold-bright);
+  border-right: 3px solid var(--gold-bright);
+  border-top-right-radius: 6px;
+}
+.game-navbar-corner--bl { bottom: 0; left: -2px; border-left: 3px solid var(--gold-bright); }
+.game-navbar-corner--br { bottom: 0; right: -2px; border-right: 3px solid var(--gold-bright); }
+
+.game-navbar-main {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+.game-navbar-end {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+/* User medallion — dropdown trigger styled like a nav medallion */
+.user-medallion {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  text-decoration: none;
+  transition: all 0.25s ease;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  border: none;
+  background: none;
+  font: inherit;
+}
+.user-medallion:hover {
+  background: rgba(201, 168, 76, 0.08);
+  color: var(--foreground);
+}
+.user-medallion .medallion-icon {
+  width: 2.75rem;
+  height: 2.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border: 2px solid rgba(201, 168, 76, 0.35);
+  background: linear-gradient(135deg, #151f33 0%, #0d1525 50%, #0a0f1e 100%);
+  font-size: 1.15rem;
+  flex-shrink: 0;
+  transition: all 0.25s ease;
+  box-shadow:
+    inset 0 1px 4px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(201, 168, 76, 0.08);
+  color: var(--gold-bright);
+}
+.user-medallion:hover .medallion-icon {
+  border-color: var(--gold);
+  box-shadow:
+    inset 0 1px 4px rgba(0, 0, 0, 0.4),
+    0 0 16px -3px var(--glow-gold),
+    0 0 0 1px rgba(201, 168, 76, 0.2);
+}
+.user-medallion .medallion-label {
+  font-family: var(--font-farro), sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+/* Compact medallions in the navbar */
+.game-navbar .medallion,
+.game-navbar .user-medallion {
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.5rem;
+}
+.game-navbar .medallion-icon,
+.game-navbar .user-medallion .medallion-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  font-size: 1.1rem;
+}
+.game-navbar .medallion-label,
+.game-navbar .user-medallion .medallion-label {
+  font-size: 0.6rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+@media (min-width: 768px) {
+  .game-navbar-inner { padding: 0.5rem 1rem; }
+  .game-navbar-main { gap: 0.5rem; }
+  .game-navbar-end { gap: 0.5rem; }
+  .game-navbar .medallion,
+  .game-navbar .user-medallion {
+    flex-direction: row;
+    gap: 0.5rem;
+    padding: 0.375rem 0.75rem;
+  }
+  .game-navbar .medallion-icon,
+  .game-navbar .user-medallion .medallion-icon {
+    width: 2.75rem;
+    height: 2.75rem;
+    font-size: 1.15rem;
+  }
+  .game-navbar .medallion-label,
+  .game-navbar .user-medallion .medallion-label {
+    font-size: 0.8rem;
+    text-transform: none;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────
+   Game Content Area — between banner and navbar
+   ────────────────────────────────────────────────────────── */
+.game-content {
+  position: relative;
+  z-index: 10;
+  flex: 1;
+  min-height: 0;
+  padding: 1rem;
+  padding-bottom: 5.5rem; /* space for navbar */
+}
+@media (min-width: 768px) {
+  .game-content {
+    padding: 1.25rem 1.5rem;
+    padding-bottom: 5.5rem;
+  }
+}
+@media (min-width: 1024px) {
+  .game-content {
+    padding: 1.5rem 2rem;
+    padding-bottom: 5.5rem;
+    max-width: 90rem;
+    margin: 0 auto;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────
+   HUD Layout — game dashboard grid
+   ────────────────────────────────────────────────────────── */
+.hud-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.hud-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 50vh;
+}
+.hud-empty .game-frame {
+  max-width: 28rem;
+  width: 100%;
+}
+.hud-child-selector {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* Main row: 3-column on desktop, stacked on mobile */
+.hud-row-main {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 1024px) {
+  .hud-row-main {
+    grid-template-columns: 1fr 1.3fr 1fr;
+    gap: 1rem;
+  }
+}
+
+/* Side panels fill their grid cell */
+.hud-panel-left,
+.hud-panel-right {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.hud-panel-left > *,
+.hud-panel-right > * {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.hud-panel-right .game-frame-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.hud-panel-right .game-frame-body > * {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-evenly;
+}
+
+/* Center character showcase */
+.hud-panel-center {
+  display: flex;
+  align-items: stretch;
+}
+.hud-panel-center > * {
+  flex: 1;
+}
+.hud-character-frame {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.hud-character-frame .game-frame-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+/* Avatar glow in character display */
+.hud-avatar {
+  filter: drop-shadow(0 0 12px rgba(62, 207, 255, 0.2));
+}
+
+/* Hero showcase — large centered avatar with pedestal */
+.hud-hero-showcase {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 0.5rem;
+}
+.hud-hero-avatar {
+  position: relative;
+  z-index: 1;
+  filter: drop-shadow(0 0 18px rgba(62, 207, 255, 0.25))
+    drop-shadow(0 0 6px rgba(201, 168, 76, 0.2));
+}
+.hud-hero-pedestal {
+  position: absolute;
+  bottom: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100px;
+  height: 18px;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(201, 168, 76, 0.25) 0%,
+    rgba(201, 168, 76, 0.08) 60%,
+    transparent 100%
+  );
+  border-radius: 50%;
+}
+
+/* Bottom row: 2-column on desktop */
+.hud-row-bottom {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 1024px) {
+  .hud-row-bottom {
+    grid-template-columns: 1fr 1.5fr;
+  }
+}
+
+/* Stats grid inside gamification profile */
+.hud-stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+/* Individual stat mini card */
+.hud-stat-mini {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 0.5rem;
+  border-radius: 6px;
+  background: rgba(21, 32, 53, 0.5);
+  border: 1px solid rgba(201, 168, 76, 0.1);
+  transition: border-color 0.2s, background 0.2s;
+}
+.hud-stat-mini:hover {
+  border-color: rgba(201, 168, 76, 0.25);
+  background: rgba(21, 32, 53, 0.7);
+}
+.hud-stat-mini-icon {
+  font-size: 1.25rem;
+  margin-bottom: 0.25rem;
+}
+
+/* Loot horizontal scroll */
+.hud-loot-row {
+  display: flex;
+  gap: 0.75rem;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+}
+/* Loot wrapping grid (tavern preview) */
+.hud-loot-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(5rem, 1fr));
+  gap: 0.5rem;
+}
+.hud-loot-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.375rem;
+  min-width: 4.5rem;
+  padding: 0.625rem;
+  border-radius: 6px;
+  background: rgba(201, 168, 76, 0.04);
+  border: 1px solid rgba(201, 168, 76, 0.15);
+  transition: border-color 0.2s, transform 0.2s;
+  flex-shrink: 0;
+}
+.hud-loot-item:hover {
+  border-color: rgba(201, 168, 76, 0.4);
+  transform: translateY(-2px);
+}
+.hud-loot-icon {
+  font-size: 1.75rem;
+  filter: drop-shadow(0 0 6px var(--glow-gold));
+}
+
+/* Locked loot item */
+.hud-loot-item--locked {
+  opacity: 0.4;
+  border-style: dashed;
+  border-color: rgba(201, 168, 76, 0.1);
+}
+.hud-loot-item--locked:hover {
+  opacity: 0.6;
+  border-color: rgba(201, 168, 76, 0.2);
+}
+.hud-loot-item--locked .hud-loot-icon {
+  filter: grayscale(1);
+}
+
+/* Scrollable panel for quest log in HUD */
+.hud-scroll-panel {
+  max-height: 24rem;
+  overflow-y: auto;
+}
+
+/* Gamification info sections */
+.hud-gamify-section {
+  padding: 0.625rem;
+  border-radius: 6px;
+  background: rgba(21, 32, 53, 0.4);
+  border: 1px solid rgba(201, 168, 76, 0.08);
+}
+
+/* Gold dim border utility */
+.border-gold-dim {
+  border-color: var(--gold-dim);
+}
+
+/* ──────────────────────────────────────────────────────────
+   Medallion Nav Buttons
+   ────────────────────────────────────────────────────────── */
+.medallion {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  text-decoration: none;
+  transition: all 0.25s ease;
+  color: var(--muted-foreground);
+}
+.medallion:hover {
+  background: rgba(201, 168, 76, 0.08);
+  color: var(--foreground);
+}
+.medallion--active {
+  color: var(--primary);
+  background: rgba(62, 207, 255, 0.1);
+}
+
+.medallion-icon {
+  width: 2.75rem;
+  height: 2.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border: 2px solid rgba(201, 168, 76, 0.35);
+  background: linear-gradient(135deg, #151f33 0%, #0d1525 50%, #0a0f1e 100%);
+  font-size: 1.15rem;
+  flex-shrink: 0;
+  transition: all 0.25s ease;
+  box-shadow:
+    inset 0 1px 4px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(201, 168, 76, 0.08);
+}
+.medallion:hover .medallion-icon {
+  border-color: var(--gold);
+  box-shadow:
+    inset 0 1px 4px rgba(0, 0, 0, 0.4),
+    0 0 16px -3px var(--glow-gold),
+    0 0 0 1px rgba(201, 168, 76, 0.2);
+}
+.medallion--active .medallion-icon {
+  border-color: rgba(62, 207, 255, 0.6);
+  box-shadow:
+    inset 0 1px 4px rgba(0, 0, 0, 0.3),
+    0 0 20px -3px var(--glow-primary),
+    0 0 0 1px rgba(62, 207, 255, 0.2);
+  background: linear-gradient(135deg, rgba(62, 207, 255, 0.15) 0%, rgba(62, 207, 255, 0.05) 100%);
+}
+
+.medallion-label {
+  font-family: var(--font-farro), sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+/* Bottom nav variant — stacked, smaller */
+.medallion--compact {
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 0.75rem;
+}
+.medallion--compact .medallion-icon {
+  width: 3rem;
+  height: 3rem;
+  font-size: 1.2rem;
+}
+.medallion--compact .medallion-label {
+  font-size: 0.65rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+/* ──────────────────────────────────────────────────────────
+   Game Frame — ornate panel with beveled 3D borders
+   Fantasy RPG panel with metallic depth, layered borders,
+   structural corner pieces, and faceted gem accents.
+   ────────────────────────────────────────────────────────── */
+.game-frame {
+  position: relative;
+  border: none;
+  border-radius: 6px;
+  background:
+    linear-gradient(180deg,
+      rgba(20, 30, 55, 0.97) 0%,
+      rgba(14, 22, 42, 0.99) 40%,
+      rgba(10, 16, 32, 1) 100%
+    );
+  box-shadow:
+    inset 0 0 40px rgba(0, 0, 0, 0.4),
+    0 2px 4px rgba(0, 0, 0, 0.6),
+    0 6px 24px rgba(0, 0, 0, 0.5),
+    0 0 30px -8px rgba(201, 168, 76, 0.1);
+  transition: box-shadow 0.3s ease;
+}
+/* Outer gold border — beveled gradient simulating metal */
+.game-frame::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 6px;
+  padding: 3px;
+  background: var(--gold-border);
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+  z-index: 1;
+  transition: background 0.3s ease;
+}
+/* Inner border — second line with gap for depth */
+.game-frame::after {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border-radius: 3px;
+  border: 1px solid rgba(201, 168, 76, 0.2);
+  pointer-events: none;
+  z-index: 1;
+  transition: border-color 0.3s ease;
+}
+/* Content sits above pseudo-elements */
+.game-frame > * {
+  position: relative;
+  z-index: 2;
+}
+.game-frame:hover {
+  box-shadow:
+    inset 0 0 40px rgba(0, 0, 0, 0.35),
+    0 2px 4px rgba(0, 0, 0, 0.6),
+    0 6px 30px rgba(0, 0, 0, 0.5),
+    0 0 50px -8px rgba(201, 168, 76, 0.25);
+}
+.game-frame:hover::before {
+  background: var(--gold);
+}
+.game-frame:hover::after {
+  border-color: rgba(201, 168, 76, 0.3);
+}
+
+/* Borderless variant — no frame chrome */
+.game-frame--borderless {
+  position: relative;
+  background:
+    linear-gradient(180deg,
+      rgba(17, 26, 46, 0.6) 0%,
+      rgba(13, 21, 37, 0.4) 40%,
+      rgba(10, 16, 30, 0.3) 100%
+    );
+  border: none;
+  border-radius: 6px;
+  box-shadow: none;
+}
+
+/* ── Corner ornaments — structural brackets with faceted gems ── */
+.game-frame-corner {
+  position: absolute;
+  pointer-events: none;
+  z-index: 3;
+}
+/* Outer gem — large faceted diamond */
+.game-frame-corner::before {
+  content: "";
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  transform: rotate(45deg);
+  background: linear-gradient(135deg, #f0d878, var(--gold));
+  border: 1px solid rgba(224, 192, 104, 0.6);
+  box-shadow:
+    0 0 8px 2px rgba(201, 168, 76, 0.5),
+    0 0 14px 3px rgba(201, 168, 76, 0.15);
+  transition: box-shadow 0.3s ease;
+}
+/* Inner gem highlight — bright center facet */
+.game-frame-corner::after {
+  content: "";
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  background: linear-gradient(135deg, #fff8e0, #f0d878);
+  transform: rotate(45deg);
+  box-shadow:
+    0 0 4px 1px rgba(255, 240, 180, 0.8),
+    0 0 10px 2px rgba(201, 168, 76, 0.3);
+  transition: box-shadow 0.3s ease;
+}
+/* Corner bracket dimensions — clean gold borders */
+.game-frame-corner--tl {
+  top: 1px;
+  left: 1px;
+  width: 32px;
+  height: 32px;
+  border-top: 2px solid var(--gold-bright);
+  border-left: 2px solid var(--gold-bright);
+}
+.game-frame-corner--tl::before { top: -8px; left: -8px; }
+.game-frame-corner--tl::after  { top: -4.5px; left: -4.5px; }
+.game-frame-corner--tr {
+  top: 1px;
+  right: 1px;
+  width: 32px;
+  height: 32px;
+  border-top: 2px solid var(--gold-bright);
+  border-right: 2px solid var(--gold-bright);
+}
+.game-frame-corner--tr::before { top: -8px; right: -8px; }
+.game-frame-corner--tr::after  { top: -4.5px; right: -4.5px; }
+.game-frame-corner--bl {
+  bottom: 1px;
+  left: 1px;
+  width: 32px;
+  height: 32px;
+  border-bottom: 2px solid var(--gold-bright);
+  border-left: 2px solid var(--gold-bright);
+}
+.game-frame-corner--bl::before { bottom: -8px; left: -8px; }
+.game-frame-corner--bl::after  { bottom: -4.5px; left: -4.5px; }
+.game-frame-corner--br {
+  bottom: 1px;
+  right: 1px;
+  width: 32px;
+  height: 32px;
+  border-bottom: 2px solid var(--gold-bright);
+  border-right: 2px solid var(--gold-bright);
+}
+.game-frame-corner--br::before { bottom: -8px; right: -8px; }
+.game-frame-corner--br::after  { bottom: -4.5px; right: -4.5px; }
+/* Corner gems glow on hover */
+.game-frame:hover .game-frame-corner::before {
+  box-shadow:
+    0 0 12px 4px rgba(201, 168, 76, 0.8),
+    0 0 20px 5px rgba(201, 168, 76, 0.2);
+}
+.game-frame:hover .game-frame-corner::after {
+  box-shadow: 0 0 6px 2px rgba(255, 240, 180, 0.8);
+}
+
+/* ── Edge midpoint decorations — beveled diamond accents ── */
+.game-frame-edge {
+  position: absolute;
+  pointer-events: none;
+  z-index: 3;
+}
+.game-frame-edge::after {
+  content: "";
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background: linear-gradient(135deg, var(--gold-bright), var(--gold));
+  transform: rotate(45deg);
+  border: 1px solid rgba(224, 192, 104, 0.4);
+  box-shadow: 0 0 6px 1px rgba(201, 168, 76, 0.35);
+  transition: box-shadow 0.3s ease;
+}
+/* Decorative line extending from edge gems */
+.game-frame-edge::before {
+  content: "";
+  position: absolute;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    rgba(201, 168, 76, 0.2) 30%,
+    rgba(201, 168, 76, 0.35) 50%,
+    rgba(201, 168, 76, 0.2) 70%,
+    transparent 100%
+  );
+  pointer-events: none;
+}
+.game-frame-edge--top {
+  top: -1px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.game-frame-edge--top::after { top: -4px; }
+.game-frame-edge--top::before {
+  top: 2px;
+  left: -20px;
+  width: 40px;
+  height: 1px;
+}
+.game-frame-edge--bottom {
+  bottom: -1px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.game-frame-edge--bottom::after { bottom: -4px; }
+.game-frame-edge--bottom::before {
+  bottom: 2px;
+  left: -20px;
+  width: 40px;
+  height: 1px;
+}
+.game-frame-edge--left {
+  left: -1px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+.game-frame-edge--left::after { left: -4px; }
+.game-frame-edge--left::before {
+  left: 2px;
+  top: -20px;
+  width: 1px;
+  height: 40px;
+  background: linear-gradient(180deg,
+    transparent 0%,
+    rgba(201, 168, 76, 0.2) 30%,
+    rgba(201, 168, 76, 0.35) 50%,
+    rgba(201, 168, 76, 0.2) 70%,
+    transparent 100%
+  );
+}
+.game-frame-edge--right {
+  right: -1px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+.game-frame-edge--right::after { right: -4px; }
+.game-frame-edge--right::before {
+  right: 2px;
+  top: -20px;
+  width: 1px;
+  height: 40px;
+  background: linear-gradient(180deg,
+    transparent 0%,
+    rgba(201, 168, 76, 0.2) 30%,
+    rgba(201, 168, 76, 0.35) 50%,
+    rgba(201, 168, 76, 0.2) 70%,
+    transparent 100%
+  );
+}
+.game-frame:hover .game-frame-edge::after {
+  box-shadow: 0 0 10px 3px rgba(201, 168, 76, 0.6);
+}
+
+/* Panel header — gold accent bar with centered title */
+.game-frame-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid rgba(201, 168, 76, 0.3);
+  background:
+    linear-gradient(90deg,
+      rgba(201, 168, 76, 0.02) 0%,
+      rgba(201, 168, 76, 0.1) 50%,
+      rgba(201, 168, 76, 0.02) 100%
+    );
+}
+.game-frame-title {
+  font-family: var(--font-farro), sans-serif;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold-bright);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 0 12px rgba(201, 168, 76, 0.3);
+}
+.game-frame-icon {
+  font-size: 1rem;
+  line-height: 1;
+}
+.game-frame-action {
+  margin-left: auto;
+}
+
+.game-frame-body {
+  padding: 1rem;
+}
+
+/* ──────────────────────────────────────────────────────────
+   Stat Card — colored accent stripe + glowing icon
+   ────────────────────────────────────────────────────────── */
+.stat-card {
+  position: relative;
+}
+.stat-card .stat-icon {
+  font-size: 1.5rem;
+  line-height: 1;
+  filter: drop-shadow(0 0 8px var(--glow-gold));
+  transition: filter 0.3s ease;
+}
+.stat-card:hover .stat-icon {
+  filter: drop-shadow(0 0 14px var(--glow-gold));
+}
+
+/* ──────────────────────────────────────────────────────────
+   XP Progress Bar — animated shimmer with glow
+   ────────────────────────────────────────────────────────── */
+.xp-bar-track {
+  height: 0.75rem;
+  border-radius: 9999px;
+  background: #152035;
+  overflow: hidden;
+  border: 1px solid rgba(74, 222, 128, 0.15);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+.xp-bar-fill {
+  height: 100%;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, #22c55e, #4ade80, #6ee7b7);
+  box-shadow: 0 0 12px var(--glow-xp), 0 0 4px var(--glow-xp);
+  transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+.xp-bar-fill::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.3) 50%, transparent 100%);
+  animation: xp-shimmer 2.5s ease-in-out infinite;
+}
+
+@keyframes xp-shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* ──────────────────────────────────────────────────────────
+   Level Badge — glowing circular indicator
+   ────────────────────────────────────────────────────────── */
+.level-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 4.5rem;
+  height: 4.5rem;
+  border-radius: 9999px;
+  border: 3px solid var(--gold-bright);
+  background: linear-gradient(135deg, rgba(201, 168, 76, 0.12), rgba(62, 207, 255, 0.06));
+  font-family: var(--font-farro), sans-serif;
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--gold-bright);
+  box-shadow:
+    0 0 24px -5px var(--glow-gold),
+    inset 0 0 20px -5px rgba(201, 168, 76, 0.2);
+  transition: all 0.3s ease;
+}
+.level-badge:hover {
+  transform: scale(1.05);
+  box-shadow:
+    0 0 35px -3px var(--glow-gold),
+    inset 0 0 25px -5px rgba(201, 168, 76, 0.25);
+}
+
+/* ──────────────────────────────────────────────────────────
+   Page Banner — ribbon / pennant shape behind page headings
+   ────────────────────────────────────────────────────────── */
+.page-banner {
+  position: relative;
+  padding: 1rem 2.5rem;
+  margin-left: -1rem;
+  margin-right: -1rem;
+  background:
+    linear-gradient(90deg,
+      transparent 0%,
+      rgba(62, 207, 255, 0.06) 10%,
+      rgba(62, 207, 255, 0.10) 50%,
+      rgba(62, 207, 255, 0.06) 90%,
+      transparent 100%
+    );
+  clip-path: polygon(
+    0% 50%,
+    2.5% 0%,
+    97.5% 0%,
+    100% 50%,
+    97.5% 100%,
+    2.5% 100%
+  );
+}
+/* Top and bottom ruled lines to reinforce the shape */
+.page-banner::before,
+.page-banner::after {
+  content: "";
+  position: absolute;
+  left: 4%;
+  right: 4%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(62, 207, 255, 0.25), transparent);
+}
+.page-banner::before { top: 0; }
+.page-banner::after  { bottom: 0; }
+.page-banner p.text-muted-foreground {
+  font-family: var(--font-quintessential), serif;
+  font-style: normal;
+  font-size: 1.5rem;
+  color: var(--foreground);
+}
+
+/* ──────────────────────────────────────────────────────────
+   Page Title — fantasy heading with gradient
+   ────────────────────────────────────────────────────────── */
+.page-title {
+  font-family: var(--font-brand);
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  background: linear-gradient(135deg, #3ecfff, #a78bfa);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 0 24px rgba(62, 207, 255, 0.2));
+}
+
+/* ──────────────────────────────────────────────────────────
+   Streak Fire — pulsing glow animation
+   ────────────────────────────────────────────────────────── */
+.streak-fire {
+  display: inline-block;
+  font-size: 2.5rem;
+  animation: fire-pulse 1.5s ease-in-out infinite;
+  filter: drop-shadow(0 0 10px var(--glow-streak));
+}
+
+@keyframes fire-pulse {
+  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 10px var(--glow-streak)); }
+  50% { transform: scale(1.1); filter: drop-shadow(0 0 20px var(--glow-streak)); }
+}
+
+/* ──────────────────────────────────────────────────────────
+   Badge Cards — earned glow / locked mystery
+   ────────────────────────────────────────────────────────── */
+.badge-earned {
+  position: relative;
+  overflow: hidden;
+  background: rgba(201, 168, 76, 0.06);
+  border: 2px solid rgba(201, 168, 76, 0.25);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  transition: transform 0.2s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+}
+.badge-earned:hover {
+  transform: scale(1.02);
+  box-shadow: 0 0 24px -5px var(--glow-gold);
+  border-color: rgba(201, 168, 76, 0.5);
+}
+.badge-earned .badge-icon {
+  font-size: 2rem;
+  animation: badge-bounce 3s ease-in-out infinite;
+}
+
+@keyframes badge-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+.badge-locked {
+  position: relative;
+  overflow: hidden;
+  background: rgba(21, 32, 53, 0.5);
+  border: 1px dashed rgba(201, 168, 76, 0.15);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  opacity: 0.45;
+  transition: opacity 0.2s ease;
+}
+.badge-locked:hover { opacity: 0.65; }
+.badge-locked .badge-icon {
+  font-size: 2rem;
+  filter: grayscale(1);
+}
+
+/* ──────────────────────────────────────────────────────────
+   Quest Items — interactive hover with subject glow
+   ────────────────────────────────────────────────────────── */
+.quest-item {
+  background: rgba(21, 32, 53, 0.6);
+  border: 1px solid rgba(201, 168, 76, 0.15);
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  transition: all 0.2s ease;
+}
+.quest-item:hover {
+  background: rgba(62, 207, 255, 0.06);
+  border-color: rgba(62, 207, 255, 0.2);
+  box-shadow: 0 0 12px -4px rgba(62, 207, 255, 0.15);
+}
+.quest-dot {
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 9999px;
+  flex-shrink: 0;
+  transition: box-shadow 0.2s ease;
+}
+.quest-item:hover .quest-dot {
+  box-shadow: 0 0 8px 2px var(--dot-glow, rgba(100, 100, 100, 0.3));
+}
+
+/* ──────────────────────────────────────────────────────────
+   Subject Progress Bars
+   ────────────────────────────────────────────────────────── */
+.subject-bar-track {
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: #152035;
+  overflow: hidden;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+.subject-bar-fill {
+  height: 100%;
+  border-radius: 9999px;
+  transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 0 10px -2px var(--bar-glow, rgba(62, 207, 255, 0.3));
+}
+
+/* ──────────────────────────────────────────────────────────
+   Auth Portal — fantasy entrance
+   ────────────────────────────────────────────────────────── */
+.auth-portal {
+  position: relative;
+  overflow: hidden;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(62, 207, 255, 0.1) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 100%, rgba(124, 58, 237, 0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 30% 50%, rgba(201, 168, 76, 0.03) 0%, transparent 40%),
+    radial-gradient(ellipse at 70% 50%, rgba(167, 139, 250, 0.03) 0%, transparent 40%),
+    linear-gradient(180deg, #060c1a 0%, #090f1f 50%, #0c1525 100%);
+}
+
+/* Floating particles */
+.auth-particle {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  border-radius: 9999px;
+  pointer-events: none;
+  animation: particle-float linear infinite;
+}
+.auth-particle:nth-child(1) { left: 15%; background: rgba(62, 207, 255, 0.9); animation-duration: 8s; animation-delay: 0s; }
+.auth-particle:nth-child(2) { left: 40%; background: rgba(167, 139, 250, 0.85); animation-duration: 12s; animation-delay: 2s; }
+.auth-particle:nth-child(3) { left: 65%; background: rgba(201, 168, 76, 0.85); animation-duration: 10s; animation-delay: 4s; }
+.auth-particle:nth-child(4) { left: 30%; background: rgba(74, 222, 128, 0.85); animation-duration: 14s; animation-delay: 1s; }
+.auth-particle:nth-child(5) { left: 80%; background: rgba(62, 207, 255, 0.8); animation-duration: 9s; animation-delay: 3s; }
+.auth-particle:nth-child(6) { left: 8%; background: rgba(167, 139, 250, 0.8); animation-duration: 11s; animation-delay: 5s; }
+
+@keyframes particle-float {
+  0% { bottom: -5%; opacity: 0; transform: translateX(0); }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { bottom: 105%; opacity: 0; transform: translateX(30px); }
+}
+
+/* Auth form frame — ornate panel for login/signup */
+.auth-frame {
+  position: relative;
+  border: none;
+  border-radius: 6px;
+  background:
+    linear-gradient(180deg,
+      rgba(17, 26, 46, 0.95) 0%,
+      rgba(13, 21, 37, 0.98) 40%,
+      rgba(10, 16, 30, 1) 100%
+    );
+  box-shadow:
+    inset 0 1px 0 rgba(201, 168, 76, 0.1),
+    inset 0 0 40px rgba(0, 0, 0, 0.3),
+    0 0 60px -10px rgba(62, 207, 255, 0.1),
+    0 8px 30px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(0, 0, 0, 0.3);
+  transition: box-shadow 0.3s ease;
+}
+/* Outer gold border — beveled gradient matching game-frame */
+.auth-frame::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 6px;
+  padding: 3px;
+  background: var(--gold-border);
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+  z-index: 1;
+  transition: background 0.3s ease;
+}
+/* Inner border — second line with gap for depth */
+.auth-frame::after {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border-radius: 3px;
+  border: 1px solid rgba(201, 168, 76, 0.2);
+  pointer-events: none;
+  z-index: 1;
+  transition: border-color 0.3s ease;
+}
+.auth-frame > :not(.game-frame-corner):not(.game-frame-edge) {
+  position: relative;
+  z-index: 2;
+}
+
+/* ──────────────────────────────────────────────────────────
+   Card — keep working for Settings page
+   ────────────────────────────────────────────────────────── */
+.card-elevated {
+  box-shadow:
+    0 0 0 1px rgba(62, 207, 255, 0.06),
+    0 2px 8px rgba(0, 0, 0, 0.3);
+}
+.card-elevated:hover {
+  box-shadow:
+    0 0 0 1px rgba(62, 207, 255, 0.1),
+    0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+/* ──────────────────────────────────────────────────────────
+   Utilities
+   ────────────────────────────────────────────────────────── */
+::placeholder {
+  font-style: italic;
+  color: var(--muted-foreground);
 }
