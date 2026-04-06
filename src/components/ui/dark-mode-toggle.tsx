@@ -8,7 +8,7 @@ export function DarkModeToggle({ className }: { className?: string }) {
   const [dark, setDark] = useState(false);
 
   useEffect(() => {
-    const stored = localStorage.getItem("herodex-theme");
+    const stored = localStorage.getItem("kingdomsandcrowns-theme");
     const prefersDark =
       stored === "dark" ||
       (!stored && window.matchMedia("(prefers-color-scheme: dark)").matches);
@@ -20,7 +20,7 @@ export function DarkModeToggle({ className }: { className?: string }) {
     const next = !dark;
     setDark(next);
     document.documentElement.classList.toggle("dark", next);
-    localStorage.setItem("herodex-theme", next ? "dark" : "light");
+    localStorage.setItem("kingdomsandcrowns-theme", next ? "dark" : "light");
   }
 
   return (

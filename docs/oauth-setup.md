@@ -1,6 +1,6 @@
 # OAuth Setup — Google Sign-In
 
-HeroDex supports signing in with Google in addition to email/password. This guide walks through configuring the provider.
+Kingdoms & Crowns supports signing in with Google in addition to email/password. This guide walks through configuring the provider.
 
 ## Environment Variables
 
@@ -25,9 +25,9 @@ GOOGLE_CLIENT_SECRET=your-google-client-secret
 1. Go to **APIs & Services > OAuth consent screen**.
 2. Choose **External** user type (unless you only need internal/org access).
 3. Fill in the required fields:
-   - **App name**: HeroDex
+   - **App name**: Kingdoms & Crowns
    - **User support email**: your email
-   - **Authorized domains**: your production domain (e.g. `herodex.com`)
+   - **Authorized domains**: your production domain (e.g. `kingdomsandcrowns.com`)
 4. Add scopes: `email`, `profile`, `openid`.
 5. Save and continue.
 

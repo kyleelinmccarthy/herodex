@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 
-const STORAGE_KEY = "herodex:quest-timer";
-const STOPPED_STORAGE_KEY = "herodex:quest-timer:stopped";
+const STORAGE_KEY = "kingdomsandcrowns:quest-timer";
+const STOPPED_STORAGE_KEY = "kingdomsandcrowns:quest-timer:stopped";
 
 // Module-level listener sets so all hook instances stay in sync
 type TimerListener = (state: TimerState | null) => void;

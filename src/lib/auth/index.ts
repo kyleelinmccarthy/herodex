@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 
 export const auth = betterAuth({
-  appName: "HeroDex",
+  appName: "Kingdoms & Crowns",
   database: drizzleAdapter(db, {
     provider: "sqlite",
     schema,

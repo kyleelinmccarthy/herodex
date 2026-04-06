@@ -41,7 +41,7 @@ async function seed() {
   await db.insert(schema.user).values({
     id: userId,
     name: "Demo User - Parent",
-    email: "demo@herodex.local",
+    email: "demo@kingdomsandcrowns.local",
     emailVerified: true,
     createdAt: now,
     updatedAt: now,
@@ -359,7 +359,7 @@ async function seed() {
   }
 
   console.log("Demo data seeded successfully!");
-  console.log("  - 1 user (demo@herodex.local)");
+  console.log("  - 1 user (demo@kingdomsandcrowns.local)");
   console.log("  - 1 family");
   console.log("  - 2 children (Lily, Lucas)");
   console.log("  - 5 subjects each");

@@ -36,7 +36,7 @@ export default async function TavernPage({
           <GameFrame>
             <div className="py-8 text-center">
               <p className="text-5xl">🏰</p>
-              <p className="mt-4 text-lg font-medium">Hail, traveler! Welcome to HeroDex!</p>
+              <p className="mt-4 text-lg font-medium">Hail, traveler! Welcome to Kingdoms & Crowns!</p>
               <p className="mt-2 text-sm text-muted-foreground">
                 <Link href="/settings" className="text-primary hover:underline">
                   Visit the Hearth

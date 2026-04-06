@@ -33,7 +33,7 @@ const grenzeGotisch = Grenze_Gotisch({
 });
 
 export const metadata: Metadata = {
-  title: "HeroDex — Be the Hero of Homeschool",
+  title: "Kingdoms & Crowns — Be the Hero of Homeschool",
   description:
     "A magical companion for homeschool families. Chronicle daily quests, summon weekly scrolls of progress, and chart your path to glory.",
   icons: {

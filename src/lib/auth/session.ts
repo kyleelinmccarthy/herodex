@@ -19,7 +19,7 @@ const demoPersonas: Record<DemoPersona, Session> = {
     user: {
       id: "demo-user",
       name: "Demo User - Parent",
-      email: "demo@herodex.local",
+      email: "demo@kingdomsandcrowns.local",
       emailVerified: true,
       image: null,
       createdAt: new Date(),
@@ -40,7 +40,7 @@ const demoPersonas: Record<DemoPersona, Session> = {
     user: {
       id: "demo-child-1",
       name: "Demo User - Lily",
-      email: "lily@herodex.local",
+      email: "lily@kingdomsandcrowns.local",
       emailVerified: true,
       image: null,
       createdAt: new Date(),
@@ -61,7 +61,7 @@ const demoPersonas: Record<DemoPersona, Session> = {
     user: {
       id: "demo-child-2",
       name: "Demo User - Lucas",
-      email: "lucas@herodex.local",
+      email: "lucas@kingdomsandcrowns.local",
       emailVerified: true,
       image: null,
       createdAt: new Date(),

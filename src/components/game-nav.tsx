@@ -51,7 +51,7 @@ export function GameBanner() {
       <div className="game-banner-inner">
         <Link href="/tavern" className="game-banner-link">
           <img src="/crown.svg" alt="" className="game-banner-logo" aria-hidden="true" />
-          <span className="game-banner-title">HeroDex</span>
+          <span className="game-banner-title">Kingdoms & Crowns</span>
           <span className="game-banner-subtitle">Be the Hero of Homeschool</span>
         </Link>
       </div>

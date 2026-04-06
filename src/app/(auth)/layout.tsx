@@ -20,9 +20,9 @@ export default function AuthLayout({
 
       {/* Brand header */}
       <div className="mb-6 text-center">
-        <img src="/crown.svg" alt="HeroDex crown" className="mx-auto mb-2 h-16 w-16" />
+        <img src="/crown.svg" alt="Kingdoms & Crowns crown" className="mx-auto mb-2 h-16 w-16" />
         <h1 className="page-title text-5xl" style={{ fontFamily: "var(--font-brand)" }}>
-          HeroDex
+          Kingdoms & Crowns
         </h1>
         <p className="game-banner-subtitle mt-2">
           Be the Hero of Homeschool
@@ -44,7 +44,7 @@ export default function AuthLayout({
       </div>
 
       <p className="mt-8 text-center text-xs text-muted-foreground/40">
-        &copy; {new Date().getFullYear()} HeroDex
+        &copy; {new Date().getFullYear()} Kingdoms &amp; Crowns
       </p>
     </div>
   );

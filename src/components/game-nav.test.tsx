@@ -15,9 +15,9 @@ vi.mock("@/components/user-menu", () => ({
 afterEach(cleanup);
 
 describe("GameBanner", () => {
-  it("renders the HeroDex brand", () => {
+  it("renders the Kingdoms & Crowns brand", () => {
     render(<GameBanner />);
-    expect(screen.getByText("HeroDex")).toBeInTheDocument();
+    expect(screen.getByText("Kingdoms & Crowns")).toBeInTheDocument();
   });
 
   it("renders the crown logo", () => {
@@ -29,7 +29,7 @@ describe("GameBanner", () => {
 
   it("links to tavern", () => {
     render(<GameBanner />);
-    const link = screen.getByText("HeroDex").closest("a");
+    const link = screen.getByText("Kingdoms & Crowns").closest("a");
     expect(link).toHaveAttribute("href", "/tavern");
   });
 

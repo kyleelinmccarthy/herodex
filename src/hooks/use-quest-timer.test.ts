@@ -2,8 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useQuestTimer, formatElapsed } from "./use-quest-timer";
 
-const STORAGE_KEY = "herodex:quest-timer";
-const STOPPED_STORAGE_KEY = "herodex:quest-timer:stopped";
+const STORAGE_KEY = "kingdomsandcrowns:quest-timer";
+const STOPPED_STORAGE_KEY = "kingdomsandcrowns:quest-timer:stopped";
 
 beforeEach(() => {
   localStorage.clear();
