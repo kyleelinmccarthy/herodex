@@ -108,7 +108,7 @@ function KidPanel({
         <h2 className="text-lg font-semibold">Welcome back, Young Hero</h2>
         <p className="mt-1 text-sm font-serif text-muted-foreground">
           {method === "pin"
-            ? "Enter your family code and tap your hero"
+            ? "Enter your family code, pick your hero, and type your PIN"
             : "Sign in with your own email"}
         </p>
       </div>
@@ -121,7 +121,11 @@ function KidPanel({
         ]}
       />
       {method === "pin" ? (
-        <HeroLogin mode="standalone" prefillCode={prefillCode} />
+        <HeroLogin
+          mode="standalone"
+          prefillCode={prefillCode}
+          onSwitchToEmail={() => setMethod("email")}
+        />
       ) : (
         <>
           <EmailForm redirectTo={redirectTo} />
