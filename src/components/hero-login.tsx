@@ -11,12 +11,16 @@ import type { AvatarConfig } from "@/lib/utils/avatar-catalog";
 
 type Hero = { childId: string; displayName: string; avatarConfig: string | null };
 
+// Family codes are always 8 characters (see generateLoginCode in child-login.ts).
+const FAMILY_CODE_LENGTH = 8;
+
 /**
  * Hero PIN sign-in.
- * - mode "standalone": kid enters a family login code first (own device). The
- *   code field, hero picker, and PIN field all stay on one continuous screen
- *   so there's no separate "screen 2" — heroes/PIN just appear inline below
- *   the code as soon as they're available.
+ * - mode "standalone": the family code field, hero picker, and PIN field are
+ *   all visible together on one screen from the start. Heroes auto-load
+ *   (debounced) as soon as a full code is typed — no button to click — and
+ *   the PIN field sits on screen the whole time, just disabled until a hero
+ *   is picked (auto-picked when there's only one).
  * - mode "handoff": a parent is already signed in; heroes load immediately.
  */
 export function HeroLogin({
@@ -54,6 +58,7 @@ export function HeroLogin({
       const data = await res.json();
       const list: Hero[] = data.heroes ?? [];
       setHeroes(list);
+      if (list.length === 1) setSelected(list[0]);
       if (list.length === 0 && familyCode) {
         setCodeError(
           "No heroes found for that code. Double-check it with a grown-up, or ask them to set a PIN in Settings."
@@ -64,11 +69,24 @@ export function HeroLogin({
     }
   }, []);
 
-  // Handoff mode (parent signed in) loads immediately; so does a prefilled code.
+  // Handoff mode (parent signed in) loads immediately.
   useEffect(() => {
     if (mode === "handoff") loadHeroes();
-    else if (prefillCode) loadHeroes(prefillCode);
-  }, [mode, prefillCode, loadHeroes]);
+  }, [mode, loadHeroes]);
+
+  // Standalone: auto-load heroes as soon as a full-length code is typed, so
+  // there's no separate "submit the code" step before the hero/PIN fields
+  // appear — the kid just keeps typing/tapping down the same form.
+  useEffect(() => {
+    if (mode !== "standalone") return;
+    if (code.trim().length !== FAMILY_CODE_LENGTH) {
+      setHeroes(null);
+      setSelected(null);
+      return;
+    }
+    const t = setTimeout(() => loadHeroes(code.trim()), 300);
+    return () => clearTimeout(t);
+  }, [mode, code, loadHeroes]);
 
   async function handlePinSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -98,32 +116,25 @@ export function HeroLogin({
     }
   }
 
+  const hasHeroes = !!heroes && heroes.length > 0;
+
   return (
     <div className="space-y-5">
       {mode === "standalone" && (
         <div className="space-y-2">
           <Label htmlFor="familyCode">Family Code</Label>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              loadHeroes(code);
-            }}
-            className="flex gap-2"
-          >
-            <Input
-              id="familyCode"
-              value={code}
-              onChange={(e) => setCode(e.target.value.toUpperCase())}
-              placeholder="e.g. ABCD2345"
-              autoCapitalize="characters"
-              autoComplete="off"
-              className="font-mono tracking-widest"
-              required
-            />
-            <Button type="submit" variant="outline" disabled={loadingHeroes || !code.trim()}>
-              {loadingHeroes ? "Looking..." : "Go"}
-            </Button>
-          </form>
+          <Input
+            id="familyCode"
+            value={code}
+            onChange={(e) => setCode(e.target.value.toUpperCase())}
+            placeholder="e.g. ABCD2345"
+            autoCapitalize="characters"
+            autoComplete="off"
+            autoFocus
+            maxLength={FAMILY_CODE_LENGTH}
+            className="font-mono tracking-widest"
+            required
+          />
           <p className="text-xs text-muted-foreground">
             This is the short code from a grown-up&apos;s account (under{" "}
             <span className="font-medium text-foreground">Settings → Family Login Code</span>).
@@ -143,6 +154,9 @@ export function HeroLogin({
             )}
             .
           </p>
+          {loadingHeroes && (
+            <p className="text-xs text-muted-foreground">Looking for your heroes…</p>
+          )}
           {codeError && (
             <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
               {codeError}
@@ -157,11 +171,11 @@ export function HeroLogin({
         </p>
       )}
 
-      {heroes && heroes.length > 0 && (
-        <div className="space-y-2">
-          <Label>Pick your hero</Label>
+      <div className="space-y-2">
+        <Label>Pick your hero</Label>
+        {hasHeroes ? (
           <div className="grid grid-cols-3 gap-3">
-            {heroes.map((h) => (
+            {heroes!.map((h) => (
               <button
                 key={h.childId}
                 type="button"
@@ -186,36 +200,43 @@ export function HeroLogin({
               </button>
             ))}
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="rounded-lg border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
+            {mode === "standalone"
+              ? "Your heroes will show up here once you type your family code above."
+              : "Loading heroes…"}
+          </div>
+        )}
+      </div>
 
-      {selected && (
-        <form onSubmit={handlePinSubmit} className="space-y-2">
-          <Label htmlFor="pin">{selected.displayName}&apos;s PIN</Label>
-          <Input
-            id="pin"
-            autoFocus
-            type="password"
-            inputMode="numeric"
-            pattern="\d{4,6}"
-            minLength={4}
-            maxLength={6}
-            value={pin}
-            onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
-            placeholder="••••"
-            className="text-center text-2xl tracking-[0.5em]"
-            required
-          />
-          {pinError && (
-            <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-              {pinError}
-            </div>
+      <form onSubmit={handlePinSubmit} className="space-y-2">
+        <Label htmlFor="pin">{selected ? `${selected.displayName}'s PIN` : "PIN"}</Label>
+        <Input
+          id="pin"
+          type="password"
+          inputMode="numeric"
+          pattern="\d{4,6}"
+          minLength={4}
+          maxLength={6}
+          value={pin}
+          onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
+          placeholder={selected ? "••••" : "Pick your hero first"}
+          disabled={!selected}
+          className={cn(
+            "text-center disabled:opacity-50",
+            selected ? "text-2xl tracking-[0.5em]" : "text-sm tracking-normal"
           )}
-          <Button type="submit" className="w-full" disabled={submitting || pin.length < 4}>
-            {submitting ? "Entering..." : "Enter the Realm"}
-          </Button>
-        </form>
-      )}
+          required
+        />
+        {pinError && (
+          <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+            {pinError}
+          </div>
+        )}
+        <Button type="submit" className="w-full" disabled={!selected || submitting || pin.length < 4}>
+          {submitting ? "Entering..." : "Enter the Realm"}
+        </Button>
+      </form>
     </div>
   );
 }
