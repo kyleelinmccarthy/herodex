@@ -1,26 +1,37 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
+const THEME_KEY = "kingdomsandcrowns-theme";
+
+function getSnapshot(): boolean {
+  const stored = localStorage.getItem(THEME_KEY);
+  return (
+    stored === "dark" ||
+    (!stored && window.matchMedia("(prefers-color-scheme: dark)").matches)
+  );
+}
+function getServerSnapshot(): boolean {
+  return false;
+}
+function subscribe(callback: () => void) {
+  window.addEventListener("storage", callback);
+  return () => window.removeEventListener("storage", callback);
+}
+
 export function DarkModeToggle({ className }: { className?: string }) {
-  const [dark, setDark] = useState(false);
+  const dark = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
   useEffect(() => {
-    const stored = localStorage.getItem("kingdomsandcrowns-theme");
-    const prefersDark =
-      stored === "dark" ||
-      (!stored && window.matchMedia("(prefers-color-scheme: dark)").matches);
-    setDark(prefersDark);
-    document.documentElement.classList.toggle("dark", prefersDark);
-  }, []);
+    document.documentElement.classList.toggle("dark", dark);
+  }, [dark]);
 
   function toggle() {
     const next = !dark;
-    setDark(next);
-    document.documentElement.classList.toggle("dark", next);
-    localStorage.setItem("kingdomsandcrowns-theme", next ? "dark" : "light");
+    localStorage.setItem(THEME_KEY, next ? "dark" : "light");
+    window.dispatchEvent(new Event("storage"));
   }
 
   return (

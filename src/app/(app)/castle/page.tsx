@@ -56,7 +56,7 @@ export default async function CastlePage({
             </p>
           </div>
           {!isChildView && allChildren.length > 1 && (
-            <ChildSelector children={allChildren} selectedId={activeChild.id} />
+            <ChildSelector kids={allChildren} selectedId={activeChild.id} />
           )}
         </div>
 
@@ -118,7 +118,7 @@ export default async function CastlePage({
           </p>
         </div>
         {!isChildView && allChildren.length > 1 && (
-          <ChildSelector children={allChildren} selectedId={activeChild.id} />
+          <ChildSelector kids={allChildren} selectedId={activeChild.id} />
         )}
       </div>
 

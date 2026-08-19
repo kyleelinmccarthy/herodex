@@ -100,12 +100,12 @@ const SUBJECT_COLORS = [
 
 export function ChildList({
   family,
-  children,
+  kids,
   isChildView = false,
   currentChildId = null,
 }: {
   family: Family;
-  children: Child[];
+  kids: Child[];
   isChildView?: boolean;
   currentChildId?: string | null;
 }) {
@@ -113,12 +113,12 @@ export function ChildList({
   const [expandedId, setExpandedId] = useState<string | null>(
     isChildView && currentChildId ? currentChildId : null
   );
-  const expandedChild = children.find((c) => c.id === expandedId) ?? null;
+  const expandedChild = kids.find((c) => c.id === expandedId) ?? null;
 
   // Children only see their own hero
   const visibleChildren = isChildView && currentChildId
-    ? children.filter((c) => c.id === currentChildId)
-    : children;
+    ? kids.filter((c) => c.id === currentChildId)
+    : kids;
 
   return (
     <>

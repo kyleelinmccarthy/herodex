@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Dialog, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -44,6 +44,50 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "companion", label: "Pet" },
 ];
 
+function randomAvatarConfig(
+  level: number,
+  earnedBadgeIds: string[],
+  questUnlockedSet: Set<string>,
+): AvatarConfig {
+  const pick = <T extends AvatarItem>(items: T[]) => {
+    const unlocked = items.filter((i) => isUnlocked(i, level, earnedBadgeIds, questUnlockedSet));
+    return unlocked[Math.floor(Math.random() * unlocked.length)];
+  };
+  const pickColor = (colors: ColorOption[]) =>
+    colors[Math.floor(Math.random() * colors.length)];
+
+  const acc = ACCESSORIES.filter((a) => isUnlocked(a, level, earnedBadgeIds, questUnlockedSet));
+  const randomAcc = acc.length > 0 && Math.random() > 0.3
+    ? acc[Math.floor(Math.random() * acc.length)].id
+    : null;
+
+  const comps = COMPANIONS.filter((c) => isUnlocked(c, level, earnedBadgeIds, questUnlockedSet));
+  const randomComp = comps.length > 0 && Math.random() > 0.3
+    ? comps[Math.floor(Math.random() * comps.length)].id
+    : null;
+
+  const companionPalette = randomComp ? getCompanionColors(randomComp) : [];
+  return {
+    skinTone: pick(SKIN_TONES).id,
+    hairStyle: pick(HAIR_STYLES).id,
+    hairColor: pickColor(HAIR_COLORS).hex,
+    outfit: pick(OUTFITS).id,
+    outfitColor: pickColor(OUTFIT_COLORS).hex,
+    legwear: pick(LEGWEAR).id,
+    legwearColor: pickColor(LEGWEAR_COLORS).hex,
+    boots: pick(BOOTS).id,
+    bootsColor: pickColor(BOOTS_COLORS).hex,
+    accessory: randomAcc,
+    accessoryColor: pickColor(ACCESSORY_COLORS).hex,
+    companion: randomComp,
+    companionColor: companionPalette.length > 0
+      ? companionPalette[Math.floor(Math.random() * companionPalette.length)].hex
+      : DEFAULT_AVATAR.companionColor,
+    background: pick(BACKGROUNDS).id,
+    backgroundColor: pickColor(BACKGROUND_COLORS).hex,
+  };
+}
+
 type AvatarCustomizerProps = {
   childId: string;
   childName: string;
@@ -76,60 +120,13 @@ export function AvatarCustomizer({
   const [tab, setTab] = useState<Tab>("skin");
   const [error, setError] = useState<string | null>(null);
 
-  // Reset state when switching to a different child
-  useEffect(() => {
-    setConfig(
-      currentConfig
-        ? normalizeAvatarConfig(currentConfig as unknown as Record<string, unknown>)
-        : DEFAULT_AVATAR
-    );
-    setTab("skin");
-    setError(null);
-  }, [childId]);
-
   function update(partial: Partial<AvatarConfig>) {
     setConfig((prev) => ({ ...prev, ...partial }));
     setError(null);
   }
 
   function randomize() {
-    const pick = <T extends AvatarItem>(items: T[]) => {
-      const unlocked = items.filter((i) => isUnlocked(i, level, earnedBadgeIds, questUnlockedSet));
-      return unlocked[Math.floor(Math.random() * unlocked.length)];
-    };
-    const pickColor = (colors: ColorOption[]) =>
-      colors[Math.floor(Math.random() * colors.length)];
-
-    const acc = ACCESSORIES.filter((a) => isUnlocked(a, level, earnedBadgeIds, questUnlockedSet));
-    const randomAcc = acc.length > 0 && Math.random() > 0.3
-      ? acc[Math.floor(Math.random() * acc.length)].id
-      : null;
-
-    const comps = COMPANIONS.filter((c) => isUnlocked(c, level, earnedBadgeIds, questUnlockedSet));
-    const randomComp = comps.length > 0 && Math.random() > 0.3
-      ? comps[Math.floor(Math.random() * comps.length)].id
-      : null;
-
-    const companionPalette = randomComp ? getCompanionColors(randomComp) : [];
-    setConfig({
-      skinTone: pick(SKIN_TONES).id,
-      hairStyle: pick(HAIR_STYLES).id,
-      hairColor: pickColor(HAIR_COLORS).hex,
-      outfit: pick(OUTFITS).id,
-      outfitColor: pickColor(OUTFIT_COLORS).hex,
-      legwear: pick(LEGWEAR).id,
-      legwearColor: pickColor(LEGWEAR_COLORS).hex,
-      boots: pick(BOOTS).id,
-      bootsColor: pickColor(BOOTS_COLORS).hex,
-      accessory: randomAcc,
-      accessoryColor: pickColor(ACCESSORY_COLORS).hex,
-      companion: randomComp,
-      companionColor: companionPalette.length > 0
-        ? companionPalette[Math.floor(Math.random() * companionPalette.length)].hex
-        : DEFAULT_AVATAR.companionColor,
-      background: pick(BACKGROUNDS).id,
-      backgroundColor: pickColor(BACKGROUND_COLORS).hex,
-    });
+    setConfig(randomAvatarConfig(level, earnedBadgeIds, questUnlockedSet));
   }
 
   function save() {

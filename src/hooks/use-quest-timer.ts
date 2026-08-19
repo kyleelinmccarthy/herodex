@@ -1,22 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 
 const STORAGE_KEY = "kingdomsandcrowns:quest-timer";
 const STOPPED_STORAGE_KEY = "kingdomsandcrowns:quest-timer:stopped";
-
-// Module-level listener sets so all hook instances stay in sync
-type TimerListener = (state: TimerState | null) => void;
-type StoppedListener = (state: StoppedResultState | null) => void;
-const timerListeners = new Set<TimerListener>();
-const stoppedListeners = new Set<StoppedListener>();
-
-function notifyTimerListeners(state: TimerState | null) {
-  timerListeners.forEach((fn) => fn(state));
-}
-function notifyStoppedListeners(state: StoppedResultState | null) {
-  stoppedListeners.forEach((fn) => fn(state));
-}
 
 type TimerState = {
   assignmentId: string;
@@ -24,12 +11,6 @@ type TimerState = {
   accumulatedMs: number; // ms from completed running segments (before current one)
   resumedAt: number; // epoch ms — when the current running segment began
   pausedAt?: number; // epoch ms — if set, timer is paused
-};
-
-type StopResult = {
-  startedAt: Date;
-  endedAt: Date;
-  durationMinutes: number;
 };
 
 export type StoppedResultState = {
@@ -66,16 +47,6 @@ function readStorage(): TimerState | null {
   }
 }
 
-function writeStorage(state: TimerState | null) {
-  if (typeof window === "undefined") return;
-  if (state) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } else {
-    localStorage.removeItem(STORAGE_KEY);
-  }
-  notifyTimerListeners(state);
-}
-
 function readStoppedStorage(): StoppedResultState | null {
   if (typeof window === "undefined") return null;
   try {
@@ -89,6 +60,67 @@ function readStoppedStorage(): StoppedResultState | null {
   }
 }
 
+// Module-level external stores, kept in sync with localStorage and shared
+// across all hook instances (and, via the storage event, other tabs).
+const timerListeners = new Set<() => void>();
+const stoppedListeners = new Set<() => void>();
+
+let cachedTimerRaw: string | null = null;
+let cachedTimerSnapshot: TimerState | null = null;
+
+function getTimerSnapshot(): TimerState | null {
+  if (typeof window === "undefined") return null;
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (raw === cachedTimerRaw) return cachedTimerSnapshot;
+  cachedTimerRaw = raw;
+  cachedTimerSnapshot = readStorage();
+  return cachedTimerSnapshot;
+}
+function getServerTimerSnapshot(): TimerState | null {
+  return null;
+}
+function subscribeTimer(callback: () => void) {
+  timerListeners.add(callback);
+  window.addEventListener("storage", callback);
+  return () => {
+    timerListeners.delete(callback);
+    window.removeEventListener("storage", callback);
+  };
+}
+
+let cachedStoppedRaw: string | null = null;
+let cachedStoppedSnapshot: StoppedResultState | null = null;
+
+function getStoppedSnapshot(): StoppedResultState | null {
+  if (typeof window === "undefined") return null;
+  const raw = localStorage.getItem(STOPPED_STORAGE_KEY);
+  if (raw === cachedStoppedRaw) return cachedStoppedSnapshot;
+  cachedStoppedRaw = raw;
+  cachedStoppedSnapshot = readStoppedStorage();
+  return cachedStoppedSnapshot;
+}
+function getServerStoppedSnapshot(): StoppedResultState | null {
+  return null;
+}
+function subscribeStopped(callback: () => void) {
+  stoppedListeners.add(callback);
+  window.addEventListener("storage", callback);
+  return () => {
+    stoppedListeners.delete(callback);
+    window.removeEventListener("storage", callback);
+  };
+}
+
+function writeStorage(state: TimerState | null) {
+  if (typeof window === "undefined") return;
+  if (state) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } else {
+    localStorage.removeItem(STORAGE_KEY);
+  }
+  timerListeners.forEach((fn) => fn());
+}
+
 function writeStoppedStorage(state: StoppedResultState | null) {
   if (typeof window === "undefined") return;
   if (state) {
@@ -96,7 +128,7 @@ function writeStoppedStorage(state: StoppedResultState | null) {
   } else {
     localStorage.removeItem(STOPPED_STORAGE_KEY);
   }
-  notifyStoppedListeners(state);
+  stoppedListeners.forEach((fn) => fn());
 }
 
 /**
@@ -110,109 +142,31 @@ export function clearOrphanedTimer(validAssignmentIds: Set<string>) {
   }
 }
 
+function computeElapsedMs(timer: TimerState): number {
+  if (timer.pausedAt) {
+    return timer.accumulatedMs;
+  }
+  return timer.accumulatedMs + (Date.now() - timer.resumedAt);
+}
+
 export function useQuestTimer() {
-  const [activeTimer, setActiveTimer] = useState<TimerState | null>(null);
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const [stoppedResult, setStoppedResult] = useState<StoppedResultState | null>(null);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const activeTimer = useSyncExternalStore(subscribeTimer, getTimerSnapshot, getServerTimerSnapshot);
+  const stoppedResult = useSyncExternalStore(subscribeStopped, getStoppedSnapshot, getServerStoppedSnapshot);
 
-  // Compute elapsed ms from timer state
-  const computeElapsedMs = useCallback((timer: TimerState) => {
-    if (timer.pausedAt) {
-      return timer.accumulatedMs;
-    }
-    return timer.accumulatedMs + (Date.now() - timer.resumedAt);
-  }, []);
-
-  // Rehydrate from localStorage on mount
+  // Force a re-render once a second while a timer is running (not paused) so
+  // the derived elapsed time keeps advancing.
+  const [, setTick] = useState(0);
   useEffect(() => {
-    const stored = readStorage();
-    if (stored) {
-      setActiveTimer(stored);
-      setElapsedSeconds(Math.floor(computeElapsedMs(stored) / 1000));
-    }
-    const stopped = readStoppedStorage();
-    if (stopped) {
-      setStoppedResult(stopped);
-    }
-  }, [computeElapsedMs]);
+    if (!activeTimer || activeTimer.pausedAt) return;
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [activeTimer]);
 
-  // Subscribe to timer changes from other hook instances in the same tab
-  useEffect(() => {
-    const handler: TimerListener = (state) => {
-      setActiveTimer(state);
-      if (state) {
-        setElapsedSeconds(Math.floor(computeElapsedMs(state) / 1000));
-      } else {
-        setElapsedSeconds(0);
-      }
-    };
-    timerListeners.add(handler);
-    return () => { timerListeners.delete(handler); };
-  }, [computeElapsedMs]);
-
-  // Subscribe to stopped result changes from other hook instances in the same tab
-  useEffect(() => {
-    const handler: StoppedListener = (state) => {
-      setStoppedResult(state);
-    };
-    stoppedListeners.add(handler);
-    return () => { stoppedListeners.delete(handler); };
-  }, []);
-
-  // Sync across browser tabs via the storage event
-  useEffect(() => {
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEY) {
-        const state = readStorage();
-        setActiveTimer(state);
-        if (state) {
-          setElapsedSeconds(Math.floor(computeElapsedMs(state) / 1000));
-        } else {
-          setElapsedSeconds(0);
-        }
-      }
-      if (e.key === STOPPED_STORAGE_KEY) {
-        setStoppedResult(readStoppedStorage());
-      }
-    };
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
-  }, [computeElapsedMs]);
-
-  // Tick elapsed time while a timer is active and not paused
-  useEffect(() => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-
-    if (activeTimer) {
-      if (activeTimer.pausedAt) {
-        // Paused — set elapsed once, no interval
-        setElapsedSeconds(Math.floor(activeTimer.accumulatedMs / 1000));
-      } else {
-        intervalRef.current = setInterval(() => {
-          setElapsedSeconds(Math.floor(computeElapsedMs(activeTimer) / 1000));
-        }, 1000);
-      }
-    } else {
-      setElapsedSeconds(0);
-    }
-
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-    };
-  }, [activeTimer, computeElapsedMs]);
+  const elapsedSeconds = activeTimer ? Math.floor(computeElapsedMs(activeTimer) / 1000) : 0;
 
   const startTimer = useCallback((assignmentId: string) => {
     const now = Date.now();
-    const state: TimerState = { assignmentId, startedAt: now, accumulatedMs: 0, resumedAt: now };
-    writeStorage(state);
-    setActiveTimer(state);
-    setElapsedSeconds(0);
+    writeStorage({ assignmentId, startedAt: now, accumulatedMs: 0, resumedAt: now });
   }, []);
 
   const stopTimer = useCallback(() => {
@@ -227,45 +181,36 @@ export function useQuestTimer() {
       durationMinutes,
     };
     writeStorage(null);
-    setActiveTimer(null);
     writeStoppedStorage(stopped);
-    setStoppedResult(stopped);
-  }, [activeTimer, computeElapsedMs]);
+  }, [activeTimer]);
 
   const clearStoppedResult = useCallback(() => {
     writeStoppedStorage(null);
-    setStoppedResult(null);
   }, []);
 
   const pauseTimer = useCallback(() => {
     if (!activeTimer || activeTimer.pausedAt) return;
     const now = Date.now();
-    const state: TimerState = {
+    writeStorage({
       ...activeTimer,
       accumulatedMs: activeTimer.accumulatedMs + (now - activeTimer.resumedAt),
       pausedAt: now,
-    };
-    writeStorage(state);
-    setActiveTimer(state);
+    });
   }, [activeTimer]);
 
   const resumeTimer = useCallback(() => {
     if (!activeTimer || !activeTimer.pausedAt) return;
     const now = Date.now();
-    const state: TimerState = {
+    writeStorage({
       ...activeTimer,
       resumedAt: now,
       pausedAt: undefined,
-    };
-    writeStorage(state);
-    setActiveTimer(state);
+    });
   }, [activeTimer]);
 
   const cancelTimer = useCallback(() => {
     writeStorage(null);
-    setActiveTimer(null);
     writeStoppedStorage(null);
-    setStoppedResult(null);
   }, []);
 
   return {

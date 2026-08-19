@@ -12,7 +12,6 @@ export function TavernAvatarCard({
   avatarConfig,
   level,
   xpInLevel,
-  currentXp,
   earnedBadgeIds = [],
   questUnlockedItems = [],
 }: {
@@ -21,7 +20,6 @@ export function TavernAvatarCard({
   avatarConfig: string | null;
   level: number;
   xpInLevel: number;
-  currentXp: number;
   earnedBadgeIds?: string[];
   questUnlockedItems?: string[];
 }) {
@@ -57,6 +55,7 @@ export function TavernAvatarCard({
       </GameFrame>
 
       <AvatarCustomizer
+        key={childId}
         childId={childId}
         childName={childName}
         currentConfig={config}

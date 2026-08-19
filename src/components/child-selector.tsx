@@ -13,10 +13,10 @@ type Child = {
 };
 
 export function ChildSelector({
-  children,
+  kids,
   selectedId,
 }: {
-  children: Child[];
+  kids: Child[];
   selectedId: string | null;
 }) {
   const router = useRouter();
@@ -28,11 +28,11 @@ export function ChildSelector({
     router.push(`?${params.toString()}`);
   }
 
-  if (children.length === 0) return null;
+  if (kids.length === 0) return null;
 
   return (
     <div className="flex gap-2">
-      {children.map((child) => (
+      {kids.map((child) => (
         <button
           key={child.id}
           onClick={() => select(child.id)}

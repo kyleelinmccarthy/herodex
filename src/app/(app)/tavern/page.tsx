@@ -14,7 +14,6 @@ import { GameFrame } from "@/components/game-frame";
 import { Avatar } from "@/components/avatar";
 import { TavernAvatarCard } from "./tavern-avatar-card";
 import { TimerCleanup } from "@/components/timer-cleanup";
-import { QuestAssignmentCard } from "@/components/quest-assignment-card";
 import { QuestForm } from "../quests/quest-form";
 import { QuestLog } from "../quests/quest-log";
 import type { AvatarConfig } from "@/lib/utils/avatar-catalog";
@@ -110,7 +109,7 @@ export default async function TavernPage({
           </p>
         </div>
         {!isChildView && allChildren.length > 1 && (
-          <ChildSelector children={allChildren} selectedId={activeChild.id} />
+          <ChildSelector kids={allChildren} selectedId={activeChild.id} />
         )}
       </div>
 
@@ -142,7 +141,6 @@ export default async function TavernPage({
               avatarConfig={activeChild.avatarConfig}
               level={level}
               xpInLevel={xpInLevel}
-              currentXp={activeChild.currentXp}
               earnedBadgeIds={earnedBadgeIdList}
               questUnlockedItems={questUnlockedItemIds}
             />

@@ -60,7 +60,6 @@ function getThisWeekStart(): string {
 export function LongRest({
   generatedText,
   savedEditedText,
-  summaryId,
   childId,
   startDate,
   endDate,
@@ -70,7 +69,6 @@ export function LongRest({
 }: {
   generatedText: string;
   savedEditedText: string | null;
-  summaryId: string | null;
   childId: string;
   startDate: string;
   endDate: string;

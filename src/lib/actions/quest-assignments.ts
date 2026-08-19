@@ -1,7 +1,7 @@
 "use server";
 
 import { nanoid } from "nanoid";
-import { eq, and, gte, lte, desc, isNotNull, sql } from "drizzle-orm";
+import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { createActivity } from "@/lib/actions/activities";

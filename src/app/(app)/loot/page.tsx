@@ -82,7 +82,7 @@ export default async function LootPage({
           </p>
         </div>
         {!isChildView && allChildren.length > 1 && (
-          <ChildSelector children={allChildren} selectedId={activeChild.id} />
+          <ChildSelector kids={allChildren} selectedId={activeChild.id} />
         )}
       </div>
 

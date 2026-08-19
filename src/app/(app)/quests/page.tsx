@@ -80,7 +80,7 @@ export default async function QuestsPage({
         </div>
         <div className="flex gap-2">
           {!isChildView && allChildren.length > 1 && (
-            <ChildSelector children={allChildren} selectedId={activeChild.id} />
+            <ChildSelector kids={allChildren} selectedId={activeChild.id} />
           )}
         </div>
       </div>
@@ -179,7 +179,6 @@ async function AdventureView({
     <LongRest
       generatedText={logText}
       savedEditedText={savedLog?.editedText ?? null}
-      summaryId={savedLog?.id ?? null}
       childId={childId}
       startDate={weekStart}
       endDate={weekEnd}

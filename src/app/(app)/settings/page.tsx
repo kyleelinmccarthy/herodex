@@ -90,7 +90,7 @@ export default async function SettingsPage() {
         <>
           <ChildList
             family={family}
-            children={childrenWithSubjects}
+            kids={childrenWithSubjects}
             isChildView={isChildView}
             currentChildId={currentChildId}
           />

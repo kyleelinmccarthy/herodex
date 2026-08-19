@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireSession } from "@/lib/auth/session";
 import { resolveActiveChild } from "@/lib/actions/resolve-child";
-import { getFamilyLeaderboard, getCommunityLeaderboard, getCommunityLeaderboardAll } from "@/lib/actions/leaderboard";
+import { getFamilyLeaderboard, getCommunityLeaderboardAll } from "@/lib/actions/leaderboard";
 import { LeaderboardTabs } from "@/components/leaderboard-tabs";
 import { GameFrame } from "@/components/game-frame";
 import { GameIcon } from "@/components/game-icon";
