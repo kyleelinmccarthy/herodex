@@ -8,6 +8,7 @@ import { GameBanner, GameNavBar } from "@/components/game-nav";
 import { DemoPersonaSwitcher } from "@/components/demo-persona-switcher";
 import { SwitchHero } from "@/components/switch-hero";
 import { QuestTimerPopup } from "@/components/quest-timer-popup";
+import { ScheduleNotificationPopup } from "@/components/schedule-notification-popup";
 
 export default async function AppLayout({
   children,
@@ -62,6 +63,11 @@ export default async function AppLayout({
 
       {/* Floating quest timer popup — visible on all pages when a timer is running */}
       <QuestTimerPopup />
+
+      {/* Class start/end notifications — hero view only */}
+      {isChildView && actor.kind === "child" && (
+        <ScheduleNotificationPopup childId={actor.childId} />
+      )}
     </div>
   );
 }

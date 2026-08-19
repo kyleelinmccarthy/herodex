@@ -4,7 +4,9 @@ import { getFamily } from "@/lib/actions/family";
 import { resolveActiveChild } from "@/lib/actions/resolve-child";
 import { getSubjects } from "@/lib/actions/subjects";
 import { getQuests } from "@/lib/actions/quests";
+import { getSchedulesForChild } from "@/lib/actions/quest-schedules";
 import { getChildAvatarUnlocks } from "@/lib/actions/avatar";
+import { getSchoolDays } from "@/lib/actions/student-schedule";
 import { ChildSelector } from "@/components/child-selector";
 import { GameFrame } from "@/components/game-frame";
 import { QuestTemplateList } from "@/components/quest-template-list";
@@ -68,10 +70,12 @@ export default async function ManageQuestsPage({
     );
   }
 
-  const [subjects, quests, avatarUnlocks] = await Promise.all([
+  const [subjects, quests, avatarUnlocks, schedules, schoolDays] = await Promise.all([
     getSubjects(activeChild.id),
     getQuests(activeChild.id),
     getChildAvatarUnlocks(activeChild.id),
+    getSchedulesForChild(activeChild.id),
+    getSchoolDays(activeChild.id),
   ]);
 
   const childUnlockedItems = avatarUnlocks.map((u) => u.itemId);
@@ -92,7 +96,14 @@ export default async function ManageQuestsPage({
         </div>
       </div>
 
-      <QuestTemplateList childId={activeChild.id} quests={quests} subjects={subjects} childUnlockedItems={childUnlockedItems} />
+      <QuestTemplateList
+        childId={activeChild.id}
+        quests={quests}
+        subjects={subjects}
+        childUnlockedItems={childUnlockedItems}
+        schedules={schedules}
+        schoolDays={schoolDays}
+      />
     </div>
   );
 }

@@ -373,6 +373,49 @@ export async function requireReminderAccess(
   return requireQuestAccess(rows[0].questId, opts);
 }
 
+/** Resolve access via a schedule-block id (looks up the owning child). */
+export async function requireScheduleBlockAccess(
+  blockId: string,
+  opts?: { write?: boolean }
+) {
+  const rows = await db
+    .select({ childId: schema.scheduleBlock.childId })
+    .from(schema.scheduleBlock)
+    .where(eq(schema.scheduleBlock.id, blockId))
+    .limit(1);
+  if (!rows[0]) throw new Error("Schedule block not found.");
+  return requireChildAccess(rows[0].childId, opts);
+}
+
+/**
+ * True when the resolved access belongs to a child acting for themself
+ * (see childSelfAccess) rather than an adult family member.
+ */
+export function isChildActor(access: FamilyAccess): boolean {
+  return access.userId.startsWith("child:");
+}
+
+/**
+ * Schedule editing needs a narrower gate than the "edit own profile" access a
+ * child normally gets: a hero may only edit their OWN schedule content when a
+ * parent has explicitly turned on `child.scheduleSelfManageEnabled`. Adults
+ * with write access (already checked by requireChildAccess) are unaffected.
+ */
+export async function assertCanEditScheduleContent(
+  childId: string,
+  access: FamilyAccess
+): Promise<void> {
+  if (!isChildActor(access)) return;
+  const rows = await db
+    .select({ enabled: schema.child.scheduleSelfManageEnabled })
+    .from(schema.child)
+    .where(eq(schema.child.id, childId))
+    .limit(1);
+  if (!rows[0]?.enabled) {
+    throw new Error("Ask a parent to turn on schedule editing for you.");
+  }
+}
+
 /**
  * The set of child ids the member may view within their active family.
  * For scope === "all" this is every child in the family.

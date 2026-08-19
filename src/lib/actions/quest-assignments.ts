@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { createActivity } from "@/lib/actions/activities";
 import { getScheduledDates } from "@/lib/utils/schedule";
+import { getSchoolDays } from "@/lib/actions/student-schedule";
 import { requireChildAccess, requireAssignmentAccess } from "@/lib/auth/access";
 
 export async function getAssignmentsForDate(childId: string, date: string) {
@@ -129,6 +130,8 @@ export async function generateAssignmentsFromSchedules(
     existingAssignments.map((a) => `${a.questId}:${a.date}`)
   );
 
+  const schoolDays = await getSchoolDays(childId);
+
   let created = 0;
   const now = new Date();
 
@@ -140,10 +143,12 @@ export async function generateAssignmentsFromSchedules(
     const dates = getScheduledDates(
       schedule.frequency,
       daysOfWeek,
+      schedule.intervalWeeks,
       schedule.startDate,
       schedule.endDate,
       startDate,
-      endDate
+      endDate,
+      schoolDays
     );
 
     for (const date of dates) {

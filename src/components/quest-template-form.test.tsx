@@ -23,6 +23,8 @@ const subjects = [
   { id: "s2", name: "Reading", color: "#3b82f6" },
 ];
 
+const schoolDays = ["mon", "tue", "wed", "thu", "fri"];
+
 afterEach(cleanup);
 
 describe("QuestTemplateForm", () => {
@@ -33,6 +35,7 @@ describe("QuestTemplateForm", () => {
         subjects={subjects}
         open={true}
         onClose={vi.fn()}
+        schoolDays={schoolDays}
       />
     );
     expect(screen.getByLabelText("Quest Title")).toBeInTheDocument();
@@ -60,6 +63,7 @@ describe("QuestTemplateForm", () => {
         quest={quest}
         open={true}
         onClose={vi.fn()}
+        schoolDays={schoolDays}
       />
     );
     expect(screen.getByLabelText("Quest Title")).toHaveValue("Read Chapter 5");
@@ -76,6 +80,7 @@ describe("QuestTemplateForm", () => {
         subjects={subjects}
         open={true}
         onClose={vi.fn()}
+        schoolDays={schoolDays}
       />
     );
     expect(screen.getByText("Math")).toBeInTheDocument();
@@ -91,9 +96,49 @@ describe("QuestTemplateForm", () => {
         subjects={subjects}
         open={true}
         onClose={onClose}
+        schoolDays={schoolDays}
       />
     );
     await user.click(screen.getByText("Cancel"));
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it("only offers school days as weekly repeat day options", async () => {
+    const user = userEvent.setup();
+    const { container } = render(
+      <QuestTemplateForm
+        childId="c1"
+        subjects={subjects}
+        open={true}
+        onClose={vi.fn()}
+        schoolDays={schoolDays}
+      />
+    );
+    await user.click(container.querySelector('button[aria-label="Repeat this quest"]')!);
+    expect(screen.getByText("Mon")).toBeInTheDocument();
+    expect(screen.queryByText("Sat")).not.toBeInTheDocument();
+    expect(screen.queryByText("Sun")).not.toBeInTheDocument();
+  });
+
+  it("shows Daily, Weekly, and Monthly frequency options with an interval input for Weekly", async () => {
+    const user = userEvent.setup();
+    const { container } = render(
+      <QuestTemplateForm
+        childId="c1"
+        subjects={subjects}
+        open={true}
+        onClose={vi.fn()}
+        schoolDays={schoolDays}
+      />
+    );
+    await user.click(container.querySelector('button[aria-label="Repeat this quest"]')!);
+    expect(screen.getByText("Daily")).toBeInTheDocument();
+    expect(screen.getByText("Weekly")).toBeInTheDocument();
+    expect(screen.getByText("Monthly")).toBeInTheDocument();
+    expect(screen.getByLabelText("Repeat every")).toBeInTheDocument();
+
+    await user.click(screen.getByText("Monthly"));
+    expect(screen.queryByLabelText("Repeat every")).not.toBeInTheDocument();
+    expect(screen.queryByText("Mon")).not.toBeInTheDocument();
   });
 });

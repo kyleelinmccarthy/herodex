@@ -4,7 +4,17 @@ import { nanoid } from "nanoid";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
-import { requireQuestAccess } from "@/lib/auth/access";
+import { requireChildAccess, requireQuestAccess } from "@/lib/auth/access";
+
+export async function getSchedulesForChild(childId: string) {
+  await requireChildAccess(childId);
+  const rows = await db
+    .select({ schedule: schema.questSchedule })
+    .from(schema.questSchedule)
+    .innerJoin(schema.quest, eq(schema.quest.id, schema.questSchedule.questId))
+    .where(eq(schema.quest.childId, childId));
+  return rows.map((r) => r.schedule);
+}
 
 export async function getSchedule(questId: string) {
   await requireQuestAccess(questId);
@@ -19,8 +29,9 @@ export async function getSchedule(questId: string) {
 export async function upsertSchedule(
   questId: string,
   data: {
-    frequency: "daily" | "specific_days";
+    frequency: "daily" | "weekly" | "monthly";
     daysOfWeek?: string[];
+    intervalWeeks?: number;
     startDate: string;
     endDate?: string;
   }
@@ -28,15 +39,18 @@ export async function upsertSchedule(
   await requireQuestAccess(questId, { write: true });
   const existing = await getSchedule(questId);
 
+  const values = {
+    frequency: data.frequency,
+    daysOfWeek: data.frequency === "weekly" && data.daysOfWeek ? JSON.stringify(data.daysOfWeek) : null,
+    intervalWeeks: data.frequency === "weekly" ? (data.intervalWeeks ?? 1) : null,
+    startDate: data.startDate,
+    endDate: data.endDate ?? null,
+  };
+
   if (existing) {
     await db
       .update(schema.questSchedule)
-      .set({
-        frequency: data.frequency,
-        daysOfWeek: data.daysOfWeek ? JSON.stringify(data.daysOfWeek) : null,
-        startDate: data.startDate,
-        endDate: data.endDate ?? null,
-      })
+      .set(values)
       .where(eq(schema.questSchedule.id, existing.id));
     return { id: existing.id };
   }
@@ -45,10 +59,7 @@ export async function upsertSchedule(
   await db.insert(schema.questSchedule).values({
     id,
     questId,
-    frequency: data.frequency,
-    daysOfWeek: data.daysOfWeek ? JSON.stringify(data.daysOfWeek) : null,
-    startDate: data.startDate,
-    endDate: data.endDate ?? null,
+    ...values,
     createdAt: new Date(),
   });
   return { id };

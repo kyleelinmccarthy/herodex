@@ -53,16 +53,16 @@ export function formatLearningLog(
     return `Learning Log: ${childName}\n${formatRangeHeader(startDate, endDate)}\n\nNo assignments recorded for this period.`;
   }
 
-  // Group by subject
-  const bySubject = new Map<string, AssignmentRow[]>();
+  // Group by date
+  const byDate = new Map<string, AssignmentRow[]>();
   for (const row of assignments) {
-    const subj = row.subject.name;
-    if (!bySubject.has(subj)) bySubject.set(subj, []);
-    bySubject.get(subj)!.push(row);
+    const date = row.assignment.date;
+    if (!byDate.has(date)) byDate.set(date, []);
+    byDate.get(date)!.push(row);
   }
 
-  // Sort subjects alphabetically
-  const sortedSubjects = [...bySubject.keys()].sort();
+  // Sort dates chronologically
+  const sortedDates = [...byDate.keys()].sort((a, b) => a.localeCompare(b));
 
   const lines: string[] = [];
   lines.push(`Learning Log: ${childName}`);
@@ -71,30 +71,30 @@ export function formatLearningLog(
   let totalCount = 0;
   let totalMinutes = 0;
 
-  for (const subject of sortedSubjects) {
-    const entries = bySubject.get(subject)!;
-    // Sort by date
-    entries.sort((a, b) => a.assignment.date.localeCompare(b.assignment.date));
+  for (const date of sortedDates) {
+    const entries = byDate.get(date)!;
+    // Sort by subject
+    entries.sort((a, b) => a.subject.name.localeCompare(b.subject.name));
 
     lines.push("");
-    lines.push(`--- ${subject} ---`);
+    lines.push(`--- ${formatDateLabel(date)} ---`);
 
     for (const entry of entries) {
       totalCount++;
-      const dateLabel = formatDateLabel(entry.assignment.date);
+      const subject = entry.subject.name;
       const title = entry.quest.title;
 
       if (entry.assignment.status === "skipped") {
-        lines.push(`• ${dateLabel}: ${title} — Skipped`);
+        lines.push(`• ${subject}: ${title} — Skipped`);
       } else {
         const mins =
           entry.durationMinutes ??
           entry.quest.estimatedMinutes;
         if (mins) {
           totalMinutes += mins;
-          lines.push(`• ${dateLabel}: ${title} (${mins} min)`);
+          lines.push(`• ${subject}: ${title} (${mins} min)`);
         } else {
-          lines.push(`• ${dateLabel}: ${title}`);
+          lines.push(`• ${subject}: ${title}`);
         }
       }
 

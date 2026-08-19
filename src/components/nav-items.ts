@@ -45,6 +45,13 @@ export const MAIN_NAV: NavItem[] = [
     description: "The Hall of Legends — see how heroes stack up on family and community leaderboards.",
     heroView: true,
   },
+  {
+    href: "/schedule",
+    label: "Schedule",
+    icon: "calendar",
+    description: "The weekly schedule — classes for each day of the week and which days are school days.",
+    heroView: true,
+  },
 ];
 
 export function navItemsFor(isChildView?: boolean): NavItem[] {

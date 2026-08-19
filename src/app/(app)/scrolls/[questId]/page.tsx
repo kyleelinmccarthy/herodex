@@ -7,6 +7,7 @@ import { getSubjects } from "@/lib/actions/subjects";
 import { getQuestResources } from "@/lib/actions/quest-resources";
 import { getSchedule } from "@/lib/actions/quest-schedules";
 import { getReminders } from "@/lib/actions/quest-reminders";
+import { getSchoolDays } from "@/lib/actions/student-schedule";
 import { GameFrame } from "@/components/game-frame";
 import { QuestResourceList } from "@/components/quest-resource-list";
 import { QuestScheduleForm } from "@/components/quest-schedule-form";
@@ -42,11 +43,12 @@ export default async function QuestDetailPage({
     );
   }
 
-  const [subjects, resources, schedule, reminders] = await Promise.all([
+  const [subjects, resources, schedule, reminders, schoolDays] = await Promise.all([
     getSubjects(quest.childId),
     getQuestResources(questId),
     getSchedule(questId),
     getReminders(questId),
+    getSchoolDays(quest.childId),
   ]);
 
   const subject = subjects.find((s) => s.id === quest.subjectId);
@@ -80,7 +82,7 @@ export default async function QuestDetailPage({
         )}
       </div>
 
-      <QuestScheduleForm questId={questId} schedule={schedule} />
+      <QuestScheduleForm questId={questId} schedule={schedule} schoolDays={schoolDays} />
       <QuestResourceList resources={resources} questId={questId} />
       <QuestReminderForm questId={questId} reminders={reminders} />
     </div>

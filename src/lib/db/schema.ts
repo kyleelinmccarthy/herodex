@@ -191,6 +191,11 @@ export const child = sqliteTable(
     pinEnabled: integer("pin_enabled", { mode: "boolean" }).notNull().default(true),
     emailLoginEnabled: integer("email_login_enabled", { mode: "boolean" }).notNull().default(false),
     googleLoginEnabled: integer("google_login_enabled", { mode: "boolean" }).notNull().default(false),
+    // ── Schedule ─────────────────────────────────────────────────
+    // Parent-only toggle: whether this hero may edit their own schedule.
+    scheduleSelfManageEnabled: integer("schedule_self_manage_enabled", { mode: "boolean" }).notNull().default(false),
+    // JSON array of weekday codes ("mon".."sun") that are school days; null = default Mon-Fri.
+    schoolDays: text("school_days"),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   },
@@ -287,6 +292,29 @@ export const subject = sqliteTable(
   },
   (table) => [
     index("subject_child_active_idx").on(table.childId, table.isActive),
+  ]
+);
+
+export const scheduleBlock = sqliteTable(
+  "schedule_block",
+  {
+    id: text("id").primaryKey(),
+    childId: text("child_id")
+      .notNull()
+      .references(() => child.id, { onDelete: "cascade" }),
+    subjectId: text("subject_id")
+      .notNull()
+      .references(() => subject.id, { onDelete: "cascade" }),
+    dayOfWeek: text("day_of_week", {
+      enum: ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
+    }).notNull(),
+    startTime: text("start_time").notNull(), // "HH:mm", 24h local time
+    endTime: text("end_time").notNull(), // "HH:mm", 24h local time
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+  },
+  (table) => [
+    index("schedule_block_child_day_idx").on(table.childId, table.dayOfWeek),
   ]
 );
 
@@ -472,8 +500,9 @@ export const questSchedule = sqliteTable("quest_schedule", {
     .notNull()
     .unique()
     .references(() => quest.id, { onDelete: "cascade" }),
-  frequency: text("frequency", { enum: ["daily", "specific_days"] }).notNull(),
-  daysOfWeek: text("days_of_week"), // JSON array e.g. ["mon","wed","fri"]
+  frequency: text("frequency", { enum: ["daily", "weekly", "monthly"] }).notNull(),
+  daysOfWeek: text("days_of_week"), // JSON array e.g. ["mon","wed","fri"]; used when frequency === "weekly"
+  intervalWeeks: integer("interval_weeks"), // used when frequency === "weekly"; 1 = every week, 2 = every other week, etc.
   startDate: text("start_date").notNull(), // ISO YYYY-MM-DD
   endDate: text("end_date"), // null = indefinite
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),

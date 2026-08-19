@@ -12,7 +12,8 @@ export async function getSubjects(childId: string) {
   return db
     .select()
     .from(schema.subject)
-    .where(and(eq(schema.subject.childId, childId), eq(schema.subject.isActive, true)));
+    .where(and(eq(schema.subject.childId, childId), eq(schema.subject.isActive, true)))
+    .orderBy(schema.subject.sortOrder);
 }
 
 export async function createSubject(childId: string, data: {
@@ -65,6 +66,32 @@ export async function updateSubject(subjectId: string, data: {
     .update(schema.subject)
     .set(updates)
     .where(eq(schema.subject.id, subjectId));
+}
+
+export async function reorderSubjects(childId: string, orderedSubjectIds: string[]) {
+  await requireChildAccess(childId, { write: true });
+
+  const existing = await db
+    .select({ id: schema.subject.id })
+    .from(schema.subject)
+    .where(eq(schema.subject.childId, childId));
+  const existingIds = new Set(existing.map((s) => s.id));
+
+  if (
+    orderedSubjectIds.length !== existingIds.size ||
+    !orderedSubjectIds.every((id) => existingIds.has(id))
+  ) {
+    throw new Error("Subject list is out of date — refresh and try again.");
+  }
+
+  await Promise.all(
+    orderedSubjectIds.map((id, index) =>
+      db
+        .update(schema.subject)
+        .set({ sortOrder: index })
+        .where(and(eq(schema.subject.id, id), eq(schema.subject.childId, childId)))
+    )
+  );
 }
 
 export async function deleteSubject(subjectId: string) {

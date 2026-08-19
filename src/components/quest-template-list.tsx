@@ -22,20 +22,35 @@ type Quest = {
   rewardAvatarItem: string | null;
 };
 
+type Schedule = {
+  id: string;
+  questId: string;
+  frequency: string;
+  daysOfWeek: string | null;
+  intervalWeeks: number | null;
+  startDate: string;
+  endDate: string | null;
+};
+
 export function QuestTemplateList({
   childId,
   quests,
   subjects,
   childUnlockedItems = [],
+  schedules = [],
+  schoolDays,
 }: {
   childId: string;
   quests: Quest[];
   subjects: Subject[];
   childUnlockedItems?: string[];
+  schedules?: Schedule[];
+  schoolDays: string[];
 }) {
   const router = useRouter();
   const [showAdd, setShowAdd] = useState(false);
   const [editingQuest, setEditingQuest] = useState<Quest | null>(null);
+  const scheduleByQuestId = new Map(schedules.map((s) => [s.questId, s]));
 
   const subjectMap = new Map(subjects.map((s) => [s.id, s]));
   const assignedAvatarItems = quests
@@ -130,6 +145,7 @@ export function QuestTemplateList({
         onClose={() => setShowAdd(false)}
         childUnlockedItems={childUnlockedItems}
         assignedAvatarItems={assignedAvatarItems}
+        schoolDays={schoolDays}
       />
 
       {editingQuest && (
@@ -137,10 +153,12 @@ export function QuestTemplateList({
           childId={childId}
           subjects={subjects}
           quest={editingQuest}
+          schedule={scheduleByQuestId.get(editingQuest.id) ?? null}
           open={true}
           onClose={() => setEditingQuest(null)}
           childUnlockedItems={childUnlockedItems}
           assignedAvatarItems={assignedAvatarItems}
+          schoolDays={schoolDays}
         />
       )}
     </>

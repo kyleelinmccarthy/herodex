@@ -38,6 +38,13 @@ export async function createQuest(data: {
   rewardXp?: number;
   rewardDescription?: string;
   rewardAvatarItem?: string; // JSON: { category, itemId }
+  schedule?: {
+    frequency: "daily" | "weekly" | "monthly";
+    daysOfWeek?: string[];
+    intervalWeeks?: number;
+    startDate: string;
+    endDate?: string;
+  };
 }) {
   await requireChildAccess(data.childId, { write: true });
   const id = nanoid();
@@ -66,6 +73,20 @@ export async function createQuest(data: {
     createdAt: now,
     updatedAt: now,
   });
+
+  if (data.schedule) {
+    const isWeekly = data.schedule.frequency === "weekly";
+    await db.insert(schema.questSchedule).values({
+      id: nanoid(),
+      questId: id,
+      frequency: data.schedule.frequency,
+      daysOfWeek: isWeekly && data.schedule.daysOfWeek ? JSON.stringify(data.schedule.daysOfWeek) : null,
+      intervalWeeks: isWeekly ? (data.schedule.intervalWeeks ?? 1) : null,
+      startDate: data.schedule.startDate,
+      endDate: data.schedule.endDate ?? null,
+      createdAt: now,
+    });
+  }
 
   return { id, title };
 }

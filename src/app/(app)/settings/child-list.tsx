@@ -1,7 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,8 +38,9 @@ import {
   recordChildConsent,
   sendChildQuestInvite,
 } from "@/lib/actions/child-auth";
-import { createSubject, updateSubject, deleteSubject } from "@/lib/actions/subjects";
+import { createSubject, updateSubject, deleteSubject, reorderSubjects } from "@/lib/actions/subjects";
 import { toggleLeaderboardVisibility } from "@/lib/actions/leaderboard";
+import { setScheduleSelfManage } from "@/lib/actions/student-schedule";
 import type { AvatarConfig } from "@/lib/utils/avatar-catalog";
 
 type Family = {
@@ -50,6 +68,7 @@ type Child = {
   currentXp: number;
   currentStreak: number;
   showOnLeaderboard: boolean;
+  scheduleSelfManageEnabled?: boolean;
   email?: string | null;
   pinEnabled?: boolean;
   hasPin?: boolean;
@@ -71,6 +90,12 @@ const SUBJECT_COLORS = [
   { label: "Jade", value: "#14b8a6" },
   { label: "Amber", value: "#f97316" },
   { label: "Iron", value: "#6b7280" },
+  { label: "Turquoise", value: "#0891b2" },
+  { label: "Bronze", value: "#92400e" },
+  { label: "Navy", value: "#1e3a8a" },
+  { label: "Lime", value: "#84cc16" },
+  { label: "Coral", value: "#fb7185" },
+  { label: "Obsidian", value: "#27272a" },
 ];
 
 export function ChildList({
@@ -220,6 +245,12 @@ function ChildDetail({ child, isChildView = false }: { child: Child; isChildView
           <LeaderboardToggle childId={child.id} enabled={child.showOnLeaderboard} />
         )}
         {!isChildView && (
+          <ScheduleSelfManageToggle
+            childId={child.id}
+            enabled={child.scheduleSelfManageEnabled ?? false}
+          />
+        )}
+        {!isChildView && (
           <div className="border-t pt-4">
             <Button
               variant="destructive"
@@ -312,6 +343,17 @@ function SubjectManager({ childId, subjects }: { childId: string; subjects: Subj
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editColor, setEditColor] = useState("");
+  const [orderedSubjects, setOrderedSubjects] = useState(subjects);
+  const [reorderError, setReorderError] = useState("");
+
+  useEffect(() => {
+    setOrderedSubjects(subjects);
+  }, [subjects]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
 
   async function handleAddSubject(e: React.FormEvent) {
     e.preventDefault();
@@ -347,6 +389,26 @@ function SubjectManager({ childId, subjects }: { childId: string; subjects: Subj
     setEditColor(subject.color ?? "#6b7280");
   }
 
+  async function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = orderedSubjects.findIndex((s) => s.id === active.id);
+    const newIndex = orderedSubjects.findIndex((s) => s.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const reordered = arrayMove(orderedSubjects, oldIndex, newIndex);
+    setOrderedSubjects(reordered);
+    setReorderError("");
+    try {
+      await reorderSubjects(childId, reordered.map((s) => s.id));
+      router.refresh();
+    } catch (err) {
+      setOrderedSubjects(subjects);
+      setReorderError(err instanceof Error ? err.message : "Could not reorder disciplines");
+    }
+  }
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
@@ -369,7 +431,7 @@ function SubjectManager({ childId, subjects }: { childId: string; subjects: Subj
           </div>
           <div className="space-y-1">
             <Label className="text-xs">Color</Label>
-            <div className="flex gap-1">
+            <div className="flex flex-wrap gap-1 max-w-48">
               {SUBJECT_COLORS.map((c) => (
                 <button
                   key={c.value}
@@ -392,61 +454,142 @@ function SubjectManager({ childId, subjects }: { childId: string; subjects: Subj
         </form>
       )}
 
-      <div className="space-y-1">
-        {subjects.map((subject) => (
-          <div key={subject.id} className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-muted/50">
-            {editingId === subject.id ? (
-              <>
-                <div
-                  className="size-3 shrink-0 rounded-full"
-                  style={{ backgroundColor: editColor }}
-                />
-                <Input
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  className="h-7 text-sm"
-                />
-                <div className="flex gap-1">
-                  {SUBJECT_COLORS.map((c) => (
-                    <button
-                      key={c.value}
-                      type="button"
-                      onClick={() => setEditColor(c.value)}
-                      className="size-4 rounded-full border"
-                      style={{
-                        backgroundColor: c.value,
-                        borderColor: editColor === c.value ? "var(--color-foreground)" : "transparent",
-                      }}
-                    />
-                  ))}
-                </div>
-                <Button size="xs" onClick={() => handleUpdateSubject(subject.id)}>Seal</Button>
-                <Button size="xs" variant="ghost" onClick={() => setEditingId(null)}>Withdraw</Button>
-              </>
-            ) : (
-              <>
-                <div
-                  className="size-3 shrink-0 rounded-full"
-                  style={{ backgroundColor: subject.color ?? "#6b7280" }}
-                />
-                <span className="flex-1 text-sm">{subject.name}</span>
-                {subject.isRequired && (
-                  <span className="text-xs text-muted-foreground">sacred</span>
-                )}
-                <Button size="xs" variant="ghost" onClick={() => startEdit(subject)}>Edit</Button>
-                <Button
-                  size="xs"
-                  variant="ghost"
-                  className="text-muted-foreground hover:text-destructive"
-                  onClick={() => handleRemoveSubject(subject.id)}
-                >
-                  ×
-                </Button>
-              </>
-            )}
+      {reorderError && (
+        <div className="rounded-md bg-destructive/10 p-2 text-sm text-destructive">{reorderError}</div>
+      )}
+
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext
+          items={orderedSubjects.map((s) => s.id)}
+          strategy={verticalListSortingStrategy}
+        >
+          <div className="space-y-1">
+            {orderedSubjects.map((subject) => (
+              <SortableSubjectRow
+                key={subject.id}
+                subject={subject}
+                editing={editingId === subject.id}
+                editName={editName}
+                editColor={editColor}
+                onEditNameChange={setEditName}
+                onEditColorChange={setEditColor}
+                onStartEdit={() => startEdit(subject)}
+                onCancelEdit={() => setEditingId(null)}
+                onSaveEdit={() => handleUpdateSubject(subject.id)}
+                onRemove={() => handleRemoveSubject(subject.id)}
+              />
+            ))}
           </div>
-        ))}
-      </div>
+        </SortableContext>
+      </DndContext>
+    </div>
+  );
+}
+
+function SortableSubjectRow({
+  subject,
+  editing,
+  editName,
+  editColor,
+  onEditNameChange,
+  onEditColorChange,
+  onStartEdit,
+  onCancelEdit,
+  onSaveEdit,
+  onRemove,
+}: {
+  subject: Subject;
+  editing: boolean;
+  editName: string;
+  editColor: string;
+  onEditNameChange: (value: string) => void;
+  onEditColorChange: (value: string) => void;
+  onStartEdit: () => void;
+  onCancelEdit: () => void;
+  onSaveEdit: () => void;
+  onRemove: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: subject.id,
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-muted/50"
+    >
+      <button
+        type="button"
+        className="cursor-grab touch-none text-muted-foreground hover:text-foreground active:cursor-grabbing"
+        aria-label={`Reorder ${subject.name}`}
+        {...attributes}
+        {...listeners}
+      >
+        <svg width="12" height="16" viewBox="0 0 12 16" fill="none" aria-hidden="true">
+          <circle cx="3" cy="3" r="1.3" fill="currentColor" />
+          <circle cx="9" cy="3" r="1.3" fill="currentColor" />
+          <circle cx="3" cy="8" r="1.3" fill="currentColor" />
+          <circle cx="9" cy="8" r="1.3" fill="currentColor" />
+          <circle cx="3" cy="13" r="1.3" fill="currentColor" />
+          <circle cx="9" cy="13" r="1.3" fill="currentColor" />
+        </svg>
+      </button>
+      {editing ? (
+        <>
+          <div
+            className="size-3 shrink-0 rounded-full"
+            style={{ backgroundColor: editColor }}
+          />
+          <Input
+            value={editName}
+            onChange={(e) => onEditNameChange(e.target.value)}
+            className="h-7 text-sm"
+          />
+          <div className="flex flex-wrap gap-1 max-w-32">
+            {SUBJECT_COLORS.map((c) => (
+              <button
+                key={c.value}
+                type="button"
+                onClick={() => onEditColorChange(c.value)}
+                className="size-4 rounded-full border"
+                style={{
+                  backgroundColor: c.value,
+                  borderColor: editColor === c.value ? "var(--color-foreground)" : "transparent",
+                }}
+              />
+            ))}
+          </div>
+          <Button size="xs" onClick={onSaveEdit}>Save</Button>
+          <Button size="xs" variant="ghost" onClick={onCancelEdit}>Withdraw</Button>
+        </>
+      ) : (
+        <>
+          <div
+            className="size-3 shrink-0 rounded-full"
+            style={{ backgroundColor: subject.color ?? "#6b7280" }}
+          />
+          <span className="flex-1 text-sm">{subject.name}</span>
+          {subject.isRequired && (
+            <span className="text-xs text-muted-foreground">sacred</span>
+          )}
+          <Button size="xs" variant="ghost" onClick={onStartEdit}>Edit</Button>
+          <Button
+            size="xs"
+            variant="ghost"
+            className="text-muted-foreground hover:text-destructive"
+            onClick={onRemove}
+          >
+            ×
+          </Button>
+        </>
+      )}
     </div>
   );
 }
@@ -751,6 +894,50 @@ function AddChildDialog({ open, onClose }: { open: boolean; onClose: () => void 
         </DialogFooter>
       </form>
     </Dialog>
+  );
+}
+
+function ScheduleSelfManageToggle({ childId, enabled }: { childId: string; enabled: boolean }) {
+  const router = useRouter();
+  const [saving, setSaving] = useState(false);
+  const [selfManage, setSelfManage] = useState(enabled);
+
+  async function handleToggle() {
+    setSaving(true);
+    try {
+      await setScheduleSelfManage(childId, !selfManage);
+      setSelfManage(!selfManage);
+      router.refresh();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      <h4 className="text-sm font-medium">Schedule Management</h4>
+      <div className="flex items-center justify-between rounded-lg border border-gold-dim bg-muted/30 px-3 py-2.5">
+        <div>
+          <p className="text-sm">
+            {selfManage
+              ? "This hero can edit their own weekly schedule."
+              : "This hero can only view their weekly schedule."}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Controls whether they can add, change, or remove classes and school days.
+          </p>
+        </div>
+        <Button
+          size="sm"
+          variant={selfManage ? "outline" : "default"}
+          className={selfManage ? "!border-[var(--gold-border)]" : undefined}
+          onClick={handleToggle}
+          disabled={saving}
+        >
+          {saving ? "Enchanting..." : selfManage ? "Make View-Only" : "Allow Editing"}
+        </Button>
+      </div>
+    </div>
   );
 }
 
