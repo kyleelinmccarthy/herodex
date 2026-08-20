@@ -74,7 +74,7 @@ export async function reorderSubjects(childId: string, orderedSubjectIds: string
   const existing = await db
     .select({ id: schema.subject.id })
     .from(schema.subject)
-    .where(eq(schema.subject.childId, childId));
+    .where(and(eq(schema.subject.childId, childId), eq(schema.subject.isActive, true)));
   const existingIds = new Set(existing.map((s) => s.id));
 
   if (

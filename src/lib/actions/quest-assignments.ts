@@ -52,6 +52,27 @@ export async function getAssignmentsForDateRange(
     );
 }
 
+export async function getLatestAssignmentStatusByQuest(childId: string) {
+  await requireChildAccess(childId);
+  const rows = await db
+    .select({
+      questId: schema.questAssignment.questId,
+      status: schema.questAssignment.status,
+      date: schema.questAssignment.date,
+    })
+    .from(schema.questAssignment)
+    .where(eq(schema.questAssignment.childId, childId));
+
+  const latest: Record<string, { status: string; date: string }> = {};
+  for (const row of rows) {
+    const current = latest[row.questId];
+    if (!current || row.date >= current.date) {
+      latest[row.questId] = { status: row.status, date: row.date };
+    }
+  }
+  return latest;
+}
+
 export async function createAssignment(data: {
   questId: string;
   childId: string;

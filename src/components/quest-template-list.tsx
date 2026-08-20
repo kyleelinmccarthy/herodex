@@ -32,6 +32,8 @@ type Schedule = {
   endDate: string | null;
 };
 
+type AssignmentStatus = { status: string; date: string };
+
 export function QuestTemplateList({
   childId,
   quests,
@@ -39,6 +41,7 @@ export function QuestTemplateList({
   childUnlockedItems = [],
   schedules = [],
   schoolDays,
+  assignmentStatusByQuest = {},
 }: {
   childId: string;
   quests: Quest[];
@@ -46,10 +49,12 @@ export function QuestTemplateList({
   childUnlockedItems?: string[];
   schedules?: Schedule[];
   schoolDays: string[];
+  assignmentStatusByQuest?: Record<string, AssignmentStatus>;
 }) {
   const router = useRouter();
   const [showAdd, setShowAdd] = useState(false);
   const [editingQuest, setEditingQuest] = useState<Quest | null>(null);
+  const [hideCompleted, setHideCompleted] = useState(false);
   const scheduleByQuestId = new Map(schedules.map((s) => [s.questId, s]));
 
   const subjectMap = new Map(subjects.map((s) => [s.id, s]));
@@ -57,9 +62,19 @@ export function QuestTemplateList({
     .filter((q) => q.rewardAvatarItem)
     .map((q) => q.rewardAvatarItem!);
 
+  // A quest is "completed" for filtering purposes only when it's a one-time
+  // (non-repeating) quest whose sole assignment has been completed. Repeating
+  // quests reset each cycle, so they're never hidden by this toggle.
+  const visibleQuests = quests.filter((q) => {
+    if (!hideCompleted) return true;
+    const isRepeating = scheduleByQuestId.has(q.id);
+    if (isRepeating) return true;
+    return assignmentStatusByQuest[q.id]?.status !== "completed";
+  });
+
   // Group quests by subject
   const grouped = new Map<string, Quest[]>();
-  for (const q of quests) {
+  for (const q of visibleQuests) {
     const list = grouped.get(q.subjectId) ?? [];
     list.push(q);
     grouped.set(q.subjectId, list);
@@ -77,9 +92,23 @@ export function QuestTemplateList({
         icon={<GameIcon name="scroll" className="size-5 text-[var(--gold-bright)]" />}
         action={<Button size="sm" onClick={() => setShowAdd(true)}>New Quest</Button>}
       >
+        {quests.length > 0 && (
+          <label className="mb-3 flex items-center gap-1.5 text-xs text-muted-foreground">
+            <input
+              type="checkbox"
+              checked={hideCompleted}
+              onChange={(e) => setHideCompleted(e.target.checked)}
+            />
+            Hide completed quests
+          </label>
+        )}
         {quests.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             No quests created yet. Create your first quest scroll to begin planning adventures!
+          </p>
+        ) : visibleQuests.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            All quests are completed. Uncheck &quot;Hide completed quests&quot; to see them.
           </p>
         ) : (
           <div className="space-y-6">

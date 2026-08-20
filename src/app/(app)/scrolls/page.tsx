@@ -5,6 +5,7 @@ import { resolveActiveChild } from "@/lib/actions/resolve-child";
 import { getSubjects } from "@/lib/actions/subjects";
 import { getQuests } from "@/lib/actions/quests";
 import { getSchedulesForChild } from "@/lib/actions/quest-schedules";
+import { getLatestAssignmentStatusByQuest } from "@/lib/actions/quest-assignments";
 import { getChildAvatarUnlocks } from "@/lib/actions/avatar";
 import { getSchoolDays } from "@/lib/actions/student-schedule";
 import { ChildSelector } from "@/components/child-selector";
@@ -70,13 +71,15 @@ export default async function ManageQuestsPage({
     );
   }
 
-  const [subjects, quests, avatarUnlocks, schedules, schoolDays] = await Promise.all([
-    getSubjects(activeChild.id),
-    getQuests(activeChild.id),
-    getChildAvatarUnlocks(activeChild.id),
-    getSchedulesForChild(activeChild.id),
-    getSchoolDays(activeChild.id),
-  ]);
+  const [subjects, quests, avatarUnlocks, schedules, schoolDays, assignmentStatusByQuest] =
+    await Promise.all([
+      getSubjects(activeChild.id),
+      getQuests(activeChild.id),
+      getChildAvatarUnlocks(activeChild.id),
+      getSchedulesForChild(activeChild.id),
+      getSchoolDays(activeChild.id),
+      getLatestAssignmentStatusByQuest(activeChild.id),
+    ]);
 
   const childUnlockedItems = avatarUnlocks.map((u) => u.itemId);
 
@@ -103,6 +106,7 @@ export default async function ManageQuestsPage({
         childUnlockedItems={childUnlockedItems}
         schedules={schedules}
         schoolDays={schoolDays}
+        assignmentStatusByQuest={assignmentStatusByQuest}
       />
     </div>
   );
