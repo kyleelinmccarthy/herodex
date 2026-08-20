@@ -8,9 +8,16 @@ export type NavItem = {
   parentOnly?: boolean;
 };
 
-// Kept in alphabetical order by label — both the parent and hero nav bars
-// render this same order (heroes just get the parentOnly items filtered out).
+// Tavern always leads (it's the main dashboard); everything after it stays
+// in alphabetical order by label. Both the parent and hero nav bars render
+// this same order (heroes just get the parentOnly items filtered out).
 export const MAIN_NAV: NavItem[] = [
+  {
+    href: "/tavern",
+    label: "Tavern",
+    icon: "tavern",
+    description: "Your home base — see your heroes, today's quests, and what's happening in your kingdom.",
+  },
   {
     href: "/loot",
     label: "Loot",
@@ -41,12 +48,6 @@ export const MAIN_NAV: NavItem[] = [
     label: "Schedule",
     icon: "calendar",
     description: "The weekly schedule — classes for each day of the week and which days are school days.",
-  },
-  {
-    href: "/tavern",
-    label: "Tavern",
-    icon: "tavern",
-    description: "Your home base — see your heroes, today's quests, and what's happening in your kingdom.",
   },
 ];
 
