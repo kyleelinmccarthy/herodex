@@ -56,9 +56,11 @@ export async function ParentDashboard({ allChildren }: { allChildren: ChildRow[]
         <QuicklinkCard href="/loot" icon="gem" label="Review Loot" />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <div className="flex flex-wrap justify-center gap-4">
         {perChild.map(({ child, todayAssignments }) => (
-          <ChildSummaryCard key={child.id} child={child} todayAssignments={todayAssignments} />
+          <div key={child.id} className="w-full sm:w-[calc(50%-0.5rem)] xl:w-[calc(33.333%-0.667rem)]">
+            <ChildSummaryCard child={child} todayAssignments={todayAssignments} />
+          </div>
         ))}
       </div>
 
@@ -136,13 +138,15 @@ function ChildSummaryCard({
           </div>
         </div>
       </div>
-      <div className="mt-3 flex flex-wrap gap-3 text-xs font-medium">
+      <div className="mt-3 flex items-center justify-between text-xs font-medium">
         <Link href={`/quests?child=${child.id}`} className="text-primary hover:underline">
           Quest log →
         </Link>
         <Link href={`/scrolls?child=${child.id}`} className="text-primary hover:underline">
           Assign quests →
         </Link>
+      </div>
+      <div className="mt-2 flex justify-center text-xs font-medium">
         <ViewAsHeroButton childId={child.id} childName={child.displayName} />
       </div>
     </GameFrame>
