@@ -6,13 +6,16 @@ import { getSubjects } from "@/lib/actions/subjects";
 import { getRecentActivities } from "@/lib/actions/activities";
 import { getAssignmentsForDate, generateAssignmentsFromSchedules } from "@/lib/actions/quest-assignments";
 import { getQuests } from "@/lib/actions/quests";
+import { getScheduleBlocks } from "@/lib/actions/student-schedule";
 import { generateLearningLog, getSavedLog } from "@/lib/actions/chronicles";
 import { getSchoolBreaks } from "@/lib/actions/school-breaks";
 import { formatDate, getWeekStartDate } from "@/lib/utils/dates";
+import { weekdayOfDate } from "@/lib/utils/schedule-days";
 import { ChildSelector } from "@/components/child-selector";
 import { GameFrame } from "@/components/game-frame";
 import { GameIcon } from "@/components/game-icon";
 import { QuestAssignmentCard } from "@/components/quest-assignment-card";
+import { TodaySchedule } from "@/components/today-schedule";
 import { QuestViewTabs } from "@/components/quest-view-tabs";
 import { LongRest } from "@/components/long-rest";
 import { TimerCleanup } from "@/components/timer-cleanup";
@@ -106,12 +109,16 @@ async function TodayView({ childId, isChildView }: { childId: string; isChildVie
   const today = formatDate(new Date());
   await generateAssignmentsFromSchedules(childId, today, today);
 
-  const [subjects, activities, todayAssignments, quests] = await Promise.all([
+  const [subjects, activities, todayAssignments, quests, allBlocks] = await Promise.all([
     getSubjects(childId),
     getRecentActivities(childId, 50),
     getAssignmentsForDate(childId, today),
     getQuests(childId),
+    getScheduleBlocks(childId),
   ]);
+
+  const todayWeekday = weekdayOfDate(today);
+  const todaysBlocks = allBlocks.filter((b) => b.dayOfWeek === todayWeekday);
 
   const pendingIds = todayAssignments
     .filter((a) => a.assignment.status === "pending")
@@ -126,11 +133,20 @@ async function TodayView({ childId, isChildView }: { childId: string; isChildVie
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {todayAssignments.length > 0 && (
           <GameFrame title={isChildView ? "Today's Quests" : "Assigned Quests"} icon={<GameIcon name="swords" className="size-5 text-[var(--gold-bright)]" />}>
-            <div className="space-y-2">
-              {todayAssignments.map((a) => (
-                <QuestAssignmentCard key={a.assignment.id} data={a} isChildView={isChildView} />
-              ))}
-            </div>
+            {todaysBlocks.length > 0 ? (
+              <TodaySchedule
+                blocks={todaysBlocks}
+                subjects={subjects}
+                assignments={todayAssignments}
+                isChildView={isChildView}
+              />
+            ) : (
+              <div className="space-y-2">
+                {todayAssignments.map((a) => (
+                  <QuestAssignmentCard key={a.assignment.id} data={a} isChildView={isChildView} />
+                ))}
+              </div>
+            )}
           </GameFrame>
         )}
 

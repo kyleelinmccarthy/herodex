@@ -1,10 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useQuestTimer, formatElapsed } from "@/hooks/use-quest-timer";
 import { completeAssignment } from "@/lib/actions/quest-assignments";
+
+const BREAK_REMINDER_INTERVAL_SECONDS = 30 * 60;
 
 export function QuestTimerPopup() {
   const router = useRouter();
@@ -20,6 +23,32 @@ export function QuestTimerPopup() {
     resumeTimer,
   } = useQuestTimer();
   const [acting, setActing] = useState(false);
+
+  // Number of 30-minute break reminders already shown/dismissed for the
+  // current timer session, so each threshold only prompts once.
+  const [breakRemindersShown, setBreakRemindersShown] = useState(0);
+  const trackedAssignmentId = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (activeTimer && activeTimer.assignmentId !== trackedAssignmentId.current) {
+      trackedAssignmentId.current = activeTimer.assignmentId;
+      setBreakRemindersShown(0);
+    } else if (!activeTimer) {
+      trackedAssignmentId.current = null;
+    }
+  }, [activeTimer]);
+
+  const showBreakReminder =
+    !!activeTimer && elapsedSeconds >= BREAK_REMINDER_INTERVAL_SECONDS * (breakRemindersShown + 1);
+
+  function dismissBreakReminder() {
+    setBreakRemindersShown((n) => n + 1);
+  }
+
+  function handleTakeBreak() {
+    dismissBreakReminder();
+    pauseTimer();
+  }
 
   // Nothing to show
   if (!activeTimer && !stoppedResult) return null;
@@ -84,37 +113,54 @@ export function QuestTimerPopup() {
 
   // Running / paused state — show live timer
   return (
-    <div className="fixed right-4 top-4 z-50 animate-in fade-in slide-in-from-right-4">
-      <div className={`flex flex-col items-center gap-2 rounded-xl border-2 ${isPaused ? "border-[var(--gold-border)]" : "border-primary/40"} bg-[linear-gradient(180deg,rgba(17,26,46,0.97)_0%,rgba(10,16,30,1)_100%)] px-6 py-4 shadow-[0_0_40px_-10px_rgba(59,130,246,0.2),0_8px_30px_rgba(0,0,0,0.5)]`}>
-        <div className={`flex items-center gap-2 text-xs font-medium uppercase tracking-wider ${isPaused ? "text-[var(--gold-bright)]" : "text-primary"}`}>
-          {isPaused ? (
-            <span className="inline-block h-2 w-2 rounded-full bg-[var(--gold-bright)]" />
-          ) : (
-            <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-primary" />
-          )}
-          {isPaused ? "Paused" : "Quest in Progress"}
-        </div>
-        <div className={`font-mono text-4xl font-bold tabular-nums ${isPaused ? "text-muted-foreground" : "text-foreground"}`}>
-          {formatElapsed(elapsedSeconds)}
-        </div>
-        <div className="flex gap-2">
-          {isPaused ? (
-            <Button size="sm" onClick={resumeTimer}>
-              Resume
-            </Button>
-          ) : (
-            <Button size="sm" onClick={pauseTimer} className="bg-blue-500 text-white hover:bg-blue-600">
-              Pause
-            </Button>
-          )}
-          <Button size="sm" onClick={handleStop} className="bg-red-600 text-white hover:bg-red-700">
-            Stop Timer
+    <>
+      <Dialog open={showBreakReminder} onClose={dismissBreakReminder}>
+        <DialogHeader>
+          <DialogTitle>Time for a Break?</DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground">
+          You&apos;ve been working for {formatElapsed(elapsedSeconds)}. Taking a short break can help you stay
+          focused and do your best work.
+        </p>
+        <DialogFooter>
+          <Button variant="ghost" onClick={handleTakeBreak}>
+            Stop &amp; Take a Break
           </Button>
-          <Button size="sm" variant="ghost" onClick={handleCancel}>
-            Cancel
-          </Button>
+          <Button onClick={dismissBreakReminder}>Keep Going</Button>
+        </DialogFooter>
+      </Dialog>
+      <div className="fixed right-4 top-4 z-50 animate-in fade-in slide-in-from-right-4">
+        <div className={`flex flex-col items-center gap-2 rounded-xl border-2 ${isPaused ? "border-[var(--gold-border)]" : "border-primary/40"} bg-[linear-gradient(180deg,rgba(17,26,46,0.97)_0%,rgba(10,16,30,1)_100%)] px-6 py-4 shadow-[0_0_40px_-10px_rgba(59,130,246,0.2),0_8px_30px_rgba(0,0,0,0.5)]`}>
+          <div className={`flex items-center gap-2 text-xs font-medium uppercase tracking-wider ${isPaused ? "text-[var(--gold-bright)]" : "text-primary"}`}>
+            {isPaused ? (
+              <span className="inline-block h-2 w-2 rounded-full bg-[var(--gold-bright)]" />
+            ) : (
+              <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-primary" />
+            )}
+            {isPaused ? "Paused" : "Quest in Progress"}
+          </div>
+          <div className={`font-mono text-4xl font-bold tabular-nums ${isPaused ? "text-muted-foreground" : "text-foreground"}`}>
+            {formatElapsed(elapsedSeconds)}
+          </div>
+          <div className="flex gap-2">
+            {isPaused ? (
+              <Button size="sm" onClick={resumeTimer}>
+                Resume
+              </Button>
+            ) : (
+              <Button size="sm" onClick={pauseTimer} className="bg-blue-500 text-white hover:bg-blue-600">
+                Pause
+              </Button>
+            )}
+            <Button size="sm" onClick={handleStop} className="bg-red-600 text-white hover:bg-red-700">
+              Stop Timer
+            </Button>
+            <Button size="sm" variant="ghost" onClick={handleCancel}>
+              Cancel
+            </Button>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }

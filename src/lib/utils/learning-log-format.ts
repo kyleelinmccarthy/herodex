@@ -15,14 +15,6 @@ type AssignmentRow = {
   durationMinutes?: number | null;
 };
 
-const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-function formatDateLabel(iso: string): string {
-  const d = new Date(iso + "T12:00:00"); // avoid timezone shift
-  const day = DAY_NAMES[d.getDay()];
-  return `${day} ${d.getMonth() + 1}/${d.getDate()}`;
-}
-
 function formatRangeHeader(startDate: string, endDate: string): string {
   const s = new Date(startDate + "T12:00:00");
   const e = new Date(endDate + "T12:00:00");
@@ -43,6 +35,19 @@ function formatDuration(totalMinutes: number): string {
   return `${hrs} hr${hrs > 1 ? "s" : ""} ${mins} min`;
 }
 
+function joinWithAnd(items: string[]): string {
+  if (items.length === 0) return "";
+  if (items.length === 1) return items[0];
+  if (items.length === 2) return `${items[0]} and ${items[1]}`;
+  return `${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`;
+}
+
+const CONTINUATIONS = [
+  "They also completed",
+  "In addition, they completed",
+  "They further completed",
+];
+
 export function formatLearningLog(
   childName: string,
   startDate: string,
@@ -53,57 +58,51 @@ export function formatLearningLog(
     return `Learning Log: ${childName}\n${formatRangeHeader(startDate, endDate)}\n\nNo assignments recorded for this period.`;
   }
 
-  // Group by date
-  const byDate = new Map<string, AssignmentRow[]>();
-  for (const row of assignments) {
-    const date = row.assignment.date;
-    if (!byDate.has(date)) byDate.set(date, []);
-    byDate.get(date)!.push(row);
+  const totalCount = assignments.length;
+  let totalMinutes = 0;
+  const completed: string[] = [];
+  const skipped: string[] = [];
+
+  for (const entry of assignments) {
+    const subject = entry.subject.name;
+    const title = entry.quest.title;
+
+    if (entry.assignment.status === "skipped") {
+      skipped.push(`${title} in ${subject}`);
+      continue;
+    }
+
+    const mins = entry.durationMinutes ?? entry.quest.estimatedMinutes;
+    if (mins) totalMinutes += mins;
+
+    let phrase = `${title} in ${subject}`;
+    if (mins) phrase += ` (${formatDuration(mins)})`;
+    if (entry.assignment.notes) phrase += ` — ${entry.assignment.notes}`;
+    completed.push(phrase);
   }
 
-  // Sort dates chronologically
-  const sortedDates = [...byDate.keys()].sort((a, b) => a.localeCompare(b));
+  const sentences: string[] = [];
+  const CHUNK_SIZE = 3;
+  for (let i = 0; i < completed.length; i += CHUNK_SIZE) {
+    const chunk = completed.slice(i, i + CHUNK_SIZE);
+    const lead =
+      i === 0 ? `This week, ${childName} completed` : CONTINUATIONS[(i / CHUNK_SIZE - 1) % CONTINUATIONS.length];
+    sentences.push(`${lead} ${joinWithAnd(chunk)}.`);
+  }
+
+  if (completed.length === 0 && skipped.length > 0) {
+    sentences.push(`This week, no assignments were completed.`);
+  }
+
+  if (skipped.length > 0) {
+    sentences.push(`They skipped ${joinWithAnd(skipped)}.`);
+  }
 
   const lines: string[] = [];
   lines.push(`Learning Log: ${childName}`);
   lines.push(formatRangeHeader(startDate, endDate));
-
-  let totalCount = 0;
-  let totalMinutes = 0;
-
-  for (const date of sortedDates) {
-    const entries = byDate.get(date)!;
-    // Sort by subject
-    entries.sort((a, b) => a.subject.name.localeCompare(b.subject.name));
-
-    lines.push("");
-    lines.push(`--- ${formatDateLabel(date)} ---`);
-
-    for (const entry of entries) {
-      totalCount++;
-      const subject = entry.subject.name;
-      const title = entry.quest.title;
-
-      if (entry.assignment.status === "skipped") {
-        lines.push(`• ${subject}: ${title} — Skipped`);
-      } else {
-        const mins =
-          entry.durationMinutes ??
-          entry.quest.estimatedMinutes;
-        if (mins) {
-          totalMinutes += mins;
-          lines.push(`• ${subject}: ${title} (${mins} min)`);
-        } else {
-          lines.push(`• ${subject}: ${title}`);
-        }
-      }
-
-      if (entry.assignment.notes) {
-        lines.push(`  Notes: ${entry.assignment.notes}`);
-      }
-    }
-  }
-
+  lines.push("");
+  lines.push(sentences.join(" "));
   lines.push("");
   lines.push(
     `Total: ${totalCount} activit${totalCount === 1 ? "y" : "ies"}${

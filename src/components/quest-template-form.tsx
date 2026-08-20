@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -105,6 +105,30 @@ export function QuestTemplateForm({
   const [repeatEndDate, setRepeatEndDate] = useState(schedule?.endDate ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  // The "New Quest" dialog stays mounted between opens (only `open` toggles), so
+  // reset its fields each time it opens rather than leaving stale values from
+  // the last quest that was created or cancelled.
+  useEffect(() => {
+    if (!open || isEditing) return;
+    const today = new Date().toISOString().slice(0, 10);
+    setTitle("");
+    setSubjectId(sortedSubjects[0]?.id ?? "");
+    setDescription("");
+    setEstimatedMinutes("");
+    setRewardXp("");
+    setRewardDescription("");
+    setRewardAvatarItem("");
+    setShowRewards(false);
+    setRepeatEnabled(false);
+    setRepeatFrequency("weekly");
+    setRepeatDays(defaultRepeatDaysForStartDate(today, schoolDays));
+    setRepeatIntervalWeeks(1);
+    setRepeatStartDate(today);
+    setRepeatEndDate("");
+    setError("");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   function toggleRepeatDay(day: string) {
     if (!schoolDays.includes(day)) return;

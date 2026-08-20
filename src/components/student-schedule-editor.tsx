@@ -101,6 +101,24 @@ export function StudentScheduleEditor({
 }) {
   const router = useRouter();
   const [error, setError] = useState("");
+  const [expandedDays, setExpandedDays] = useState<Set<DayOfWeek>>(new Set());
+  const allExpanded = expandedDays.size === DAYS_OF_WEEK.length;
+
+  function toggleDayExpanded(day: DayOfWeek) {
+    setExpandedDays((prev) => {
+      const next = new Set(prev);
+      if (next.has(day)) {
+        next.delete(day);
+      } else {
+        next.add(day);
+      }
+      return next;
+    });
+  }
+
+  function toggleAllExpanded() {
+    setExpandedDays(allExpanded ? new Set() : new Set(DAYS_OF_WEEK));
+  }
 
   async function toggleSchoolDay(day: DayOfWeek) {
     setError("");
@@ -129,6 +147,11 @@ export function StudentScheduleEditor({
             Only a parent can change this schedule right now.
           </p>
         )}
+        <div className="flex justify-end">
+          <Button size="sm" variant="outline" onClick={toggleAllExpanded}>
+            {allExpanded ? "Collapse All" : "Expand All"}
+          </Button>
+        </div>
         <div className="space-y-3">
           {DAYS_OF_WEEK.map((day) => (
             <DayRow
@@ -141,6 +164,8 @@ export function StudentScheduleEditor({
               allBlocks={blocks}
               canEdit={canEdit}
               onToggleSchoolDay={() => toggleSchoolDay(day)}
+              expanded={expandedDays.has(day)}
+              onToggleExpanded={() => toggleDayExpanded(day)}
             />
           ))}
         </div>
@@ -158,6 +183,8 @@ function DayRow({
   allBlocks,
   canEdit,
   onToggleSchoolDay,
+  expanded,
+  onToggleExpanded,
 }: {
   childId: string;
   day: DayOfWeek;
@@ -167,6 +194,8 @@ function DayRow({
   allBlocks: Block[];
   canEdit: boolean;
   onToggleSchoolDay: () => void;
+  expanded: boolean;
+  onToggleExpanded: () => void;
 }) {
   const router = useRouter();
   const [mode, setMode] = useState<"none" | "add" | "copy">("none");
@@ -193,7 +222,30 @@ function DayRow({
       }`}
     >
       <div className="flex items-center justify-between">
-        <h4 className="text-base font-medium">{DAY_LABELS[day]}</h4>
+        <button
+          type="button"
+          onClick={onToggleExpanded}
+          className="flex min-w-0 items-center gap-2 text-left"
+          aria-expanded={expanded}
+        >
+          <svg
+            className={`h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform ${
+              expanded ? "rotate-180" : ""
+            }`}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2.5}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+          </svg>
+          <h4 className="text-base font-medium">{DAY_LABELS[day]}</h4>
+          {isSchoolDay && (
+            <span className="text-xs text-muted-foreground">
+              ({sorted.length} class{sorted.length === 1 ? "" : "es"})
+            </span>
+          )}
+        </button>
         {canEdit ? (
           <label className="flex cursor-pointer items-center gap-2.5 select-none">
             <span
@@ -222,7 +274,7 @@ function DayRow({
         <div className="mt-3 rounded-md bg-destructive/10 p-2 text-xs text-destructive">{error}</div>
       )}
 
-      {isSchoolDay && (
+      {isSchoolDay && expanded && (
         <div className="mt-3 space-y-2">
           {sorted.length === 0 && (
             <p className="text-sm text-muted-foreground">No classes scheduled.</p>

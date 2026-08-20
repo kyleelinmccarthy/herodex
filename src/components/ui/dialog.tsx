@@ -26,14 +26,22 @@ export function Dialog({
     }
   }, [open]);
 
+  const backdropMouseDown = useRef(false);
+
   return (
     <dialog
       ref={ref}
       onClose={onClose}
-      // Native <dialog> registers backdrop clicks on the element itself; close
-      // when the click lands outside the inner content.
+      // Native <dialog> registers backdrop clicks on the element itself. Only
+      // treat it as a backdrop click if BOTH the mousedown and the click
+      // landed on the dialog itself — otherwise a text-selection drag that
+      // starts inside the content and ends up outside it (e.g. selecting all
+      // text in a field) gets misread as a close request.
+      onMouseDown={(e) => {
+        backdropMouseDown.current = e.target === ref.current;
+      }}
       onClick={(e) => {
-        if (e.target === ref.current) onClose();
+        if (e.target === ref.current && backdropMouseDown.current) onClose();
       }}
       className={cn(
         "backdrop:bg-black/60 rounded-md border-2 border-[var(--gold-border)] p-0 m-auto",
