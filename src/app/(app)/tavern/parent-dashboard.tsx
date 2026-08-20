@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import Link from "next/link";
 import {
   getAssignmentsForDate,
@@ -56,11 +57,15 @@ export async function ParentDashboard({ allChildren }: { allChildren: ChildRow[]
         <QuicklinkCard href="/loot" icon="gem" label="Review Loot" />
       </div>
 
-      <div className="flex flex-wrap justify-center gap-4">
+      <div
+        className="grid grid-cols-1 gap-4 sm:[grid-template-columns:repeat(var(--dash-cols-sm),minmax(0,1fr))] xl:[grid-template-columns:repeat(var(--dash-cols-xl),minmax(0,1fr))]"
+        style={{
+          "--dash-cols-sm": Math.min(perChild.length, 2),
+          "--dash-cols-xl": Math.min(perChild.length, 3),
+        } as CSSProperties}
+      >
         {perChild.map(({ child, todayAssignments }) => (
-          <div key={child.id} className="w-full sm:w-[calc(50%-0.5rem)] xl:w-[calc(33.333%-0.667rem)]">
-            <ChildSummaryCard child={child} todayAssignments={todayAssignments} />
-          </div>
+          <ChildSummaryCard key={child.id} child={child} todayAssignments={todayAssignments} />
         ))}
       </div>
 
