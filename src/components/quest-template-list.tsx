@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,8 @@ import { GameFrame } from "@/components/game-frame";
 import { GameIcon } from "@/components/game-icon";
 import { QuestTemplateForm } from "./quest-template-form";
 import { deleteQuest } from "@/lib/actions/quests";
+
+const HIDE_COMPLETED_KEY = "kingdomsandcrowns-hide-completed-quests";
 
 type Subject = { id: string; name: string; color: string | null };
 
@@ -55,6 +57,17 @@ export function QuestTemplateList({
   const [showAdd, setShowAdd] = useState(false);
   const [editingQuest, setEditingQuest] = useState<Quest | null>(null);
   const [hideCompleted, setHideCompleted] = useState(false);
+
+  useEffect(() => {
+    const stored = localStorage.getItem(HIDE_COMPLETED_KEY);
+    if (stored !== null) setHideCompleted(stored === "true");
+  }, []);
+
+  function toggleHideCompleted(checked: boolean) {
+    setHideCompleted(checked);
+    localStorage.setItem(HIDE_COMPLETED_KEY, String(checked));
+  }
+
   const scheduleByQuestId = new Map(schedules.map((s) => [s.questId, s]));
 
   const subjectMap = new Map(subjects.map((s) => [s.id, s]));
@@ -97,7 +110,7 @@ export function QuestTemplateList({
             <input
               type="checkbox"
               checked={hideCompleted}
-              onChange={(e) => setHideCompleted(e.target.checked)}
+              onChange={(e) => toggleHideCompleted(e.target.checked)}
             />
             Hide completed quests
           </label>

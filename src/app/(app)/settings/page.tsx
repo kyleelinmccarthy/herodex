@@ -69,16 +69,18 @@ export default async function SettingsPage() {
 
   return (
     <div className="space-y-8">
-      <div className="page-banner">
+      <div className="page-banner text-center">
         <h1 className="page-title text-3xl">The Hearth</h1>
         {family ? (
-          <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="relative flex flex-col items-center gap-2">
             <p className="text-lg text-muted-foreground">
               <span className="font-semibold text-foreground">{family.familyName}</span>
               {" "}&middot; {isChildView ? "My Chronicle" : "Family Settings"}
             </p>
             {families.length > 1 && (
-              <FamilySwitcher families={families} activeFamilyId={family.id} />
+              <div className="sm:absolute sm:right-0 sm:top-1/2 sm:-translate-y-1/2">
+                <FamilySwitcher families={families} activeFamilyId={family.id} />
+              </div>
             )}
           </div>
         ) : (

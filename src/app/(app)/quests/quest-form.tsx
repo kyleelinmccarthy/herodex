@@ -75,16 +75,17 @@ export function QuestForm({
   );
   // Recurring quests only belong in the list on the days they're actually
   // assigned; quests with no recurring schedule are one-off/bonus quests
-  // that stay available any day until completed (checked against their most
-  // recent assignment ever, not just today's, so a one-off finished on a
-  // previous day doesn't reappear).
+  // that stay available any day until completed or skipped (checked against
+  // their most recent assignment ever, not just today's, so a one-off
+  // finished or skipped on a previous day doesn't reappear).
   const assignedTodayQuestIds = new Set(todayAssignments.map((a) => a.quest.id));
   const availableQuests = quests.filter((q) => {
     const todayStatus = todayStatusByQuestId.get(q.id);
     if (todayStatus === "completed" || todayStatus === "skipped") return false;
     if (assignedTodayQuestIds.has(q.id)) return true;
     if (q.hasSchedule) return false;
-    return latestStatusByQuestId[q.id]?.status !== "completed";
+    const latestStatus = latestStatusByQuestId[q.id]?.status;
+    return latestStatus !== "completed" && latestStatus !== "skipped";
   });
 
   // Earliest scheduled block per subject today, so a subject scheduled twice

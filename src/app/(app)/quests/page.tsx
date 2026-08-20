@@ -70,7 +70,7 @@ export default async function QuestsPage({
 
   return (
     <div className="space-y-6">
-      <div className="page-banner flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="page-banner relative flex flex-col items-center gap-4 text-center">
         <div>
           <h1 className="page-title text-4xl">
             {isChildView ? "My Quests" : "Quest Log"}
@@ -81,11 +81,14 @@ export default async function QuestsPage({
               : `Scribe and track ${activeChild.displayName}'s heroic endeavors.`}
           </p>
         </div>
-        <div className="flex gap-2">
-          {!isChildView && allChildren.length > 1 && (
-            <ChildSelector kids={allChildren} selectedId={activeChild.id} />
-          )}
-        </div>
+        {!isChildView && (
+          <div className="flex items-center gap-3 sm:absolute sm:right-0 sm:top-1/2 sm:-translate-y-1/2">
+            <Link href={`/scrolls?child=${activeChild.id}`} className="text-xs font-medium text-primary hover:underline">
+              Quest Giver →
+            </Link>
+            {allChildren.length > 1 && <ChildSelector kids={allChildren} selectedId={activeChild.id} />}
+          </div>
+        )}
       </div>
 
       <QuestViewTabs active={activeView} />
