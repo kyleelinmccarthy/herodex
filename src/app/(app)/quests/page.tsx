@@ -4,7 +4,7 @@ import { getFamily } from "@/lib/actions/family";
 import { resolveActiveChild } from "@/lib/actions/resolve-child";
 import { getSubjects } from "@/lib/actions/subjects";
 import { getRecentActivities } from "@/lib/actions/activities";
-import { getAssignmentsForDate, generateAssignmentsFromSchedules } from "@/lib/actions/quest-assignments";
+import { getAssignmentsForDate, generateAssignmentsFromSchedules, getLatestAssignmentStatusByQuest } from "@/lib/actions/quest-assignments";
 import { getQuests } from "@/lib/actions/quests";
 import { getScheduleBlocks } from "@/lib/actions/student-schedule";
 import { generateLearningLog, getSavedLog } from "@/lib/actions/chronicles";
@@ -109,12 +109,13 @@ async function TodayView({ childId, isChildView }: { childId: string; isChildVie
   const today = formatDate(new Date());
   await generateAssignmentsFromSchedules(childId, today, today);
 
-  const [subjects, activities, todayAssignments, quests, allBlocks] = await Promise.all([
+  const [subjects, activities, todayAssignments, quests, allBlocks, latestStatusByQuestId] = await Promise.all([
     getSubjects(childId),
     getRecentActivities(childId, 50),
     getAssignmentsForDate(childId, today),
     getQuests(childId),
     getScheduleBlocks(childId),
+    getLatestAssignmentStatusByQuest(childId),
   ]);
 
   const todayWeekday = weekdayOfDate(today);
@@ -157,6 +158,7 @@ async function TodayView({ childId, isChildView }: { childId: string; isChildVie
           todayAssignments={todayAssignments}
           todaysBlocks={todaysBlocks}
           nowTime={currentTimeOfDay()}
+          latestStatusByQuestId={latestStatusByQuestId}
         />
       </div>
 

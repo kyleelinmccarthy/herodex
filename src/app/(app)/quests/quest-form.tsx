@@ -46,6 +46,7 @@ export function QuestForm({
   todayAssignments,
   todaysBlocks = [],
   nowTime,
+  latestStatusByQuestId = {},
 }: {
   childId: string;
   subjects: Subject[];
@@ -53,6 +54,7 @@ export function QuestForm({
   todayAssignments: TodayAssignment[];
   todaysBlocks?: ScheduleBlock[];
   nowTime?: string;
+  latestStatusByQuestId?: Record<string, { status: string; date: string }>;
 }) {
   const router = useRouter();
   const { startTimer } = useQuestTimer();
@@ -67,18 +69,22 @@ export function QuestForm({
     todayAssignments.map((a) => [a.quest.id, a.assignment.id])
   );
 
-  // A quest already completed today shouldn't still be offered to start again.
-  const completedTodayQuestIds = new Set(
-    todayAssignments.filter((a) => a.assignment.status === "completed").map((a) => a.quest.id)
+  // A quest already completed or skipped today shouldn't still be offered to start again.
+  const todayStatusByQuestId = new Map(
+    todayAssignments.map((a) => [a.quest.id, a.assignment.status])
   );
   // Recurring quests only belong in the list on the days they're actually
   // assigned; quests with no recurring schedule are one-off/bonus quests
-  // that stay available any day until completed.
+  // that stay available any day until completed (checked against their most
+  // recent assignment ever, not just today's, so a one-off finished on a
+  // previous day doesn't reappear).
   const assignedTodayQuestIds = new Set(todayAssignments.map((a) => a.quest.id));
   const availableQuests = quests.filter((q) => {
-    if (completedTodayQuestIds.has(q.id)) return false;
+    const todayStatus = todayStatusByQuestId.get(q.id);
+    if (todayStatus === "completed" || todayStatus === "skipped") return false;
     if (assignedTodayQuestIds.has(q.id)) return true;
-    return !q.hasSchedule;
+    if (q.hasSchedule) return false;
+    return latestStatusByQuestId[q.id]?.status !== "completed";
   });
 
   // Earliest scheduled block per subject today, so a subject scheduled twice

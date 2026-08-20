@@ -132,9 +132,9 @@ export default async function LootPage({
         </GameFrame>
       </div>
 
-      {/* Earned badges */}
-      <GameFrame title={`Claimed Treasures (${earnedBadges.length})`} icon={<GameIcon name="trophy" className="size-4 text-[var(--gold-bright)]" />}>
-        {earnedBadges.length === 0 ? (
+      {/* Claimed treasures — earned badges + completed quest bounties */}
+      <GameFrame title={`Claimed Treasures (${earnedBadges.length + questRewards.length})`} icon={<GameIcon name="trophy" className="size-4 text-[var(--gold-bright)]" />}>
+        {earnedBadges.length === 0 && questRewards.length === 0 ? (
           <div className="py-6 text-center">
             <GameIcon name="key" className="mx-auto size-10 text-[var(--gold-bright)]" />
             <p className="mt-3 text-sm text-muted-foreground">
@@ -155,21 +155,13 @@ export default async function LootPage({
                 </div>
               </div>
             ))}
-          </div>
-        )}
-      </GameFrame>
-
-      {/* Quest Bounties */}
-      {questRewards.length > 0 && (
-        <GameFrame title="Quest Bounties" icon={<GameIcon name="gift" className="size-4 text-[var(--gold-bright)]" />}>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {questRewards.map((reward) => {
               const avatarItemLabel = reward.rewardAvatarItem
                 ? getRewardItemLabel(reward.rewardAvatarItem)
                 : null;
               return (
                 <div key={reward.assignmentId} className="flex items-start gap-3 rounded-lg border border-[var(--gold-dim)] bg-[rgba(201,168,76,0.04)] p-2.5">
-                  <GameIcon name="trophy" className="size-5 shrink-0 text-[var(--gold-bright)]" />
+                  <GameIcon name="gift" className="size-5 shrink-0 text-[var(--gold-bright)]" />
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium">{reward.questTitle}</p>
                     <div className="mt-0.5 flex flex-wrap gap-1">
@@ -192,8 +184,8 @@ export default async function LootPage({
               );
             })}
           </div>
-        </GameFrame>
-      )}
+        )}
+      </GameFrame>
 
       {/* Locked badges */}
       {allBadges.filter((b) => !earnedIds.has(b.id)).length > 0 && (

@@ -4,7 +4,7 @@ import { getFamily } from "@/lib/actions/family";
 import { resolveActiveChild } from "@/lib/actions/resolve-child";
 import { getSubjects } from "@/lib/actions/subjects";
 import { getRecentActivities } from "@/lib/actions/activities";
-import { getAssignmentsForDate, generateAssignmentsFromSchedules } from "@/lib/actions/quest-assignments";
+import { getAssignmentsForDate, generateAssignmentsFromSchedules, getLatestAssignmentStatusByQuest } from "@/lib/actions/quest-assignments";
 import { getQuests } from "@/lib/actions/quests";
 import { getScheduleBlocks } from "@/lib/actions/student-schedule";
 import { getBadges, getChildBadges, checkAndAwardBadges } from "@/lib/actions/badges";
@@ -78,7 +78,7 @@ export default async function TavernPage({
   const today = formatDate(new Date());
   await generateAssignmentsFromSchedules(activeChild.id, today, today);
 
-  const [subjects, recentActivities, allBadges, earnedBadges, todayAssignments, quests, avatarUnlocks, allBlocks] = await Promise.all([
+  const [subjects, recentActivities, allBadges, earnedBadges, todayAssignments, quests, avatarUnlocks, allBlocks, latestStatusByQuestId] = await Promise.all([
     getSubjects(activeChild.id),
     getRecentActivities(activeChild.id, 50),
     getBadges(),
@@ -87,6 +87,7 @@ export default async function TavernPage({
     getQuests(activeChild.id),
     getChildAvatarUnlocks(activeChild.id),
     getScheduleBlocks(activeChild.id),
+    getLatestAssignmentStatusByQuest(activeChild.id),
   ]);
 
   const todaysBlocks = allBlocks.filter((b) => b.dayOfWeek === weekdayOfDate(today));
@@ -228,6 +229,7 @@ export default async function TavernPage({
             todayAssignments={todayAssignments}
             todaysBlocks={todaysBlocks}
             nowTime={currentTimeOfDay()}
+            latestStatusByQuestId={latestStatusByQuestId}
           />
         </div>
       </div>
