@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -123,6 +123,16 @@ export function QuestForm({
 
   const [selectedQuestId, setSelectedQuestId] = useState(sortedQuests[0]?.id ?? "");
   const selectedQuest = availableQuests.find((q) => q.id === selectedQuestId);
+
+  // A completed quest drops out of availableQuests on the router.refresh()
+  // after a submit, but selectedQuestId is otherwise never touched — resync
+  // it so a stale id can't leave the form pointed at a quest that no longer
+  // exists (which made the next Quick Complete silently no-op).
+  useEffect(() => {
+    if (selectedQuestId && !availableQuests.some((q) => q.id === selectedQuestId)) {
+      setSelectedQuestId(sortedQuests[0]?.id ?? "");
+    }
+  }, [selectedQuestId, availableQuests, sortedQuests]);
   const selectedSubject = subjects.find((s) => s.id === selectedQuest?.subjectId);
   const selectedBlock = selectedQuest ? blockBySubjectId.get(selectedQuest.subjectId) : undefined;
   const selectedStatus = blockStatus(selectedBlock);
@@ -288,7 +298,7 @@ export function QuestForm({
         )}
 
         <div className="flex gap-2">
-          <Button onClick={handleStartTimer} disabled={saving || !selectedQuestId} className="gap-2">
+          <Button onClick={handleStartTimer} disabled={saving || !selectedQuest} className="gap-2">
             {saving ? (
               "Starting..."
             ) : (
@@ -307,7 +317,7 @@ export function QuestForm({
                 setShowDuration(true);
               }
             }}
-            disabled={saving || !selectedQuestId}
+            disabled={saving || !selectedQuest}
             className="gap-2 !border-[var(--gold-bright)]"
           >
             {saving ? (
