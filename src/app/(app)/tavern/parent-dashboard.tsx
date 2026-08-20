@@ -11,7 +11,6 @@ import { GameIcon, type GameIconName } from "@/components/game-icon";
 import { Avatar } from "@/components/avatar";
 import type { AvatarConfig } from "@/lib/utils/avatar-catalog";
 import type { getChildren } from "@/lib/actions/children";
-import { ViewAsHeroButton } from "./view-as-hero-button";
 
 type ChildRow = Awaited<ReturnType<typeof getChildren>>[number];
 
@@ -152,7 +151,10 @@ function ChildSummaryCard({
         </Link>
       </div>
       <div className="mt-2 flex justify-center text-xs font-medium">
-        <ViewAsHeroButton childId={child.id} childName={child.displayName} />
+        <Link href={`/tavern?child=${child.id}`} className="flex items-center gap-1 text-primary hover:underline">
+          <GameIcon name="tavern" className="size-3" />
+          View {child.displayName}&apos;s Tavern →
+        </Link>
       </div>
     </GameFrame>
   );

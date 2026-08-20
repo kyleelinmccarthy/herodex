@@ -11,8 +11,11 @@ import { getBadges, getChildBadges, checkAndAwardBadges } from "@/lib/actions/ba
 import { getChildAvatarUnlocks } from "@/lib/actions/avatar";
 import { formatDate } from "@/lib/utils/dates";
 import { weekdayOfDate, currentTimeOfDay } from "@/lib/utils/schedule-days";
+import { ChildSelector } from "@/components/child-selector";
 import { GameFrame } from "@/components/game-frame";
+import { Avatar } from "@/components/avatar";
 import { TavernAvatarCard } from "./tavern-avatar-card";
+import type { AvatarConfig } from "@/lib/utils/avatar-catalog";
 import { TimerCleanup } from "@/components/timer-cleanup";
 import { QuestForm } from "../quests/quest-form";
 import { QuestLog } from "../quests/quest-log";
@@ -71,7 +74,7 @@ export default async function TavernPage({
     );
   }
 
-  if (!isChildView) {
+  if (!isChildView && !selectedChildId) {
     return <ParentDashboard allChildren={allChildren} />;
   }
 
@@ -109,11 +112,23 @@ export default async function TavernPage({
       <TimerCleanup pendingAssignmentIds={pendingIds} />
       <div className="page-banner relative flex flex-col items-center gap-4 text-center">
         <div>
-          <h1 className="page-title text-4xl">My Tavern</h1>
+          {!isChildView && (
+            <Link href="/tavern" className="mb-1 inline-block text-xs font-medium text-primary hover:underline">
+              ← Back to dashboard
+            </Link>
+          )}
+          <h1 className="page-title text-4xl">
+            {isChildView ? "My Tavern" : `${activeChild.displayName}'s Tavern`}
+          </h1>
           <p className="mt-1 text-muted-foreground">
-            Welcome back, {activeChild.displayName}!
+            {isChildView ? `Welcome back, ${activeChild.displayName}!` : "A closer look at one hero's adventure."}
           </p>
         </div>
+        {!isChildView && allChildren.length > 1 && (
+          <div className="sm:absolute sm:right-0 sm:top-1/2 sm:-translate-y-1/2">
+            <ChildSelector kids={allChildren} selectedId={activeChild.id} />
+          </div>
+        )}
       </div>
 
       {/* ═══ ROW 1: Assigned Quests | Character | Quest Form ═══ */}
@@ -121,7 +136,7 @@ export default async function TavernPage({
 
         {/* LEFT: Assigned Quests (today's quest assignments) */}
         <GameFrame
-          title="Today's Quests"
+          title={isChildView ? "Today's Quests" : "Assigned Quests"}
           icon={<GameIcon name="swords" className="size-4 text-[var(--gold-bright)]" />}
           className="hud-panel-left"
           action={
@@ -155,15 +170,64 @@ export default async function TavernPage({
 
         {/* CENTER: Character Showcase (avatar, name, level, XP, streaks) */}
         <div className="hud-panel-center">
-          <TavernAvatarCard
-            childId={activeChild.id}
-            childName={activeChild.displayName}
-            avatarConfig={activeChild.avatarConfig}
-            level={level}
-            xpInLevel={xpInLevel}
-            earnedBadgeIds={earnedBadgeIdList}
-            questUnlockedItems={questUnlockedItemIds}
-          />
+          {isChildView ? (
+            <TavernAvatarCard
+              childId={activeChild.id}
+              childName={activeChild.displayName}
+              avatarConfig={activeChild.avatarConfig}
+              level={level}
+              xpInLevel={xpInLevel}
+              earnedBadgeIds={earnedBadgeIdList}
+              questUnlockedItems={questUnlockedItemIds}
+            />
+          ) : (
+            <GameFrame className="hud-character-frame" borderless>
+              <div className="flex flex-col items-center text-center">
+                <div className="hud-hero-showcase">
+                  <div className="hud-hero-pedestal" />
+                  <Avatar
+                    config={activeChild.avatarConfig ? JSON.parse(activeChild.avatarConfig) as AvatarConfig : null}
+                    name={activeChild.displayName}
+                    size="xl"
+                    className="hud-avatar hud-hero-avatar"
+                  />
+                </div>
+                <p className="mt-3 font-brand text-2xl font-bold tracking-wide" style={{ color: "var(--gold-bright)" }}>
+                  {activeChild.displayName}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Level {level} Champion
+                </p>
+
+                {/* Level badge + XP bar */}
+                <div className="mt-3 flex items-center gap-4">
+                  <div className="level-badge">{level}</div>
+                  <div className="text-left">
+                    <p className="text-xs text-muted-foreground">{xpInLevel}/100 XP to ascend</p>
+                    <div className="xp-bar-track mt-1" style={{ width: "8rem" }}>
+                      <div className="xp-bar-fill" style={{ width: `${xpInLevel}%` }} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Streak + XP stats */}
+                <div className="mt-4 flex gap-6 text-center">
+                  <div>
+                    <p className="text-2xl font-bold" style={{ color: "var(--streak)" }}>{activeChild.currentStreak}</p>
+                    <p className="text-xs text-muted-foreground">day streak</p>
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold" style={{ color: "var(--xp)" }}>{activeChild.currentXp}</p>
+                    <p className="text-xs text-muted-foreground">total XP</p>
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold" style={{ color: "var(--magic)" }}>{activeChild.longestStreak}</p>
+                    <p className="text-xs text-muted-foreground">best streak</p>
+                  </div>
+                </div>
+              </div>
+            </GameFrame>
+          )}
         </div>
 
         {/* RIGHT: Start a Quest (quest form) */}
@@ -260,7 +324,7 @@ export default async function TavernPage({
             icon={<GameIcon name="gem" className="size-4 text-[var(--gold-bright)]" />}
             action={
               <Link
-                href="/loot"
+                href={`/loot${isChildView ? "" : `?child=${activeChild.id}`}`}
                 className="text-xs font-medium text-primary hover:underline"
               >
                 View all →
@@ -306,7 +370,7 @@ export default async function TavernPage({
               icon={<GameIcon name="lock" className="size-4 text-[var(--gold-bright)]" />}
               action={
                 <Link
-                  href="/loot"
+                  href={`/loot${isChildView ? "" : `?child=${activeChild.id}`}`}
                   className="text-xs font-medium text-primary hover:underline"
                 >
                   View all →
