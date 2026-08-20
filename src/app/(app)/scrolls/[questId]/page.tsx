@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireSession } from "@/lib/auth/session";
+import { requireActor } from "@/lib/auth/actor";
 import { resolveActiveChild } from "@/lib/actions/resolve-child";
 import { getQuest } from "@/lib/actions/quests";
 import { getSubjects } from "@/lib/actions/subjects";
@@ -19,7 +19,7 @@ export default async function QuestDetailPage({
 }: {
   params: Promise<{ questId: string }>;
 }) {
-  await requireSession();
+  await requireActor();
   const { questId } = await params;
 
   const quest = await getQuest(questId);

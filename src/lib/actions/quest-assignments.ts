@@ -176,17 +176,25 @@ export async function generateAssignmentsFromSchedules(
       const key = `${quest.id}:${date}`;
       if (existingSet.has(key)) continue;
 
-      await db.insert(schema.questAssignment).values({
-        id: nanoid(),
-        questId: quest.id,
-        childId,
-        date,
-        status: "pending",
-        createdAt: now,
-        updatedAt: now,
-      });
+      // onConflictDoNothing guards against a concurrent call (e.g. a
+      // prefetched route) racing this same check-then-insert for the same
+      // quest+day — the unique index is what actually prevents the dupe.
+      const inserted = await db
+        .insert(schema.questAssignment)
+        .values({
+          id: nanoid(),
+          questId: quest.id,
+          childId,
+          date,
+          status: "pending",
+          createdAt: now,
+          updatedAt: now,
+        })
+        .onConflictDoNothing()
+        .returning({ id: schema.questAssignment.id });
+
       existingSet.add(key);
-      created++;
+      if (inserted.length > 0) created++;
     }
   }
 
@@ -306,14 +314,15 @@ export async function deleteAssignment(assignmentId: string) {
     .where(eq(schema.questAssignment.id, assignmentId));
 }
 
-/** Fetch completed assignments that had quest rewards attached */
+/** Fetch completed assignments that had quest rewards attached, one card per quest */
 export async function getEarnedQuestRewards(childId: string, limit = 10) {
   await requireChildAccess(childId);
   const hasReward = sql`(${schema.quest.rewardXp} IS NOT NULL OR ${schema.quest.rewardDescription} IS NOT NULL OR ${schema.quest.rewardAvatarItem} IS NOT NULL)`;
 
-  return db
+  const rows = await db
     .select({
       assignmentId: schema.questAssignment.id,
+      questId: schema.questAssignment.questId,
       completedAt: schema.questAssignment.completedAt,
       questTitle: schema.quest.title,
       rewardXp: schema.quest.rewardXp,
@@ -329,6 +338,17 @@ export async function getEarnedQuestRewards(childId: string, limit = 10) {
         hasReward,
       )
     )
-    .orderBy(desc(schema.questAssignment.completedAt))
-    .limit(limit);
+    .orderBy(desc(schema.questAssignment.completedAt));
+
+  // A recurring quest can rack up many completed assignments; only show its
+  // most recent completion so the same reward doesn't appear multiple times.
+  const seenQuestIds = new Set<string>();
+  const deduped: typeof rows = [];
+  for (const row of rows) {
+    if (seenQuestIds.has(row.questId)) continue;
+    seenQuestIds.add(row.questId);
+    deduped.push(row);
+    if (deduped.length >= limit) break;
+  }
+  return deduped;
 }

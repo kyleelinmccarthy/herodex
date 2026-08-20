@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireSession } from "@/lib/auth/session";
+import { requireActor } from "@/lib/auth/actor";
 import { resolveActiveChild } from "@/lib/actions/resolve-child";
 import { getSubjects } from "@/lib/actions/subjects";
 import {
@@ -17,7 +17,7 @@ export default async function SchedulePage({
 }: {
   searchParams: Promise<{ child?: string }>;
 }) {
-  await requireSession();
+  await requireActor();
   const { child: selectedChildId } = await searchParams;
   const { child: activeChild, allChildren, isChildView } = await resolveActiveChild(selectedChildId);
 

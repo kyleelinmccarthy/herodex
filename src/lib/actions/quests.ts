@@ -1,7 +1,7 @@
 "use server";
 
 import { nanoid } from "nanoid";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { sanitizeName, sanitizeText } from "@/lib/utils/sanitize";
@@ -9,10 +9,15 @@ import { requireChildAccess, requireQuestAccess } from "@/lib/auth/access";
 
 export async function getQuests(childId: string) {
   await requireChildAccess(childId);
-  return db
-    .select()
+  const rows = await db
+    .select({
+      quest: schema.quest,
+      hasSchedule: sql<boolean>`${schema.questSchedule.id} is not null`,
+    })
     .from(schema.quest)
+    .leftJoin(schema.questSchedule, eq(schema.questSchedule.questId, schema.quest.id))
     .where(and(eq(schema.quest.childId, childId), eq(schema.quest.isActive, true)));
+  return rows.map((r) => ({ ...r.quest, hasSchedule: r.hasSchedule }));
 }
 
 export async function getQuest(questId: string) {

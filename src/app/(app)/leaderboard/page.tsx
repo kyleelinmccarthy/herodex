@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireSession } from "@/lib/auth/session";
+import { requireActor } from "@/lib/auth/actor";
 import { resolveActiveChild } from "@/lib/actions/resolve-child";
 import { getFamilyLeaderboard, getCommunityLeaderboardAll } from "@/lib/actions/leaderboard";
 import { LeaderboardTabs } from "@/components/leaderboard-tabs";
@@ -11,7 +11,7 @@ export default async function LeaderboardPage({
 }: {
   searchParams: Promise<{ child?: string }>;
 }) {
-  await requireSession();
+  await requireActor();
   const { child: selectedChildId } = await searchParams;
   const { child: activeChild, isChildView } = await resolveActiveChild(selectedChildId);
 

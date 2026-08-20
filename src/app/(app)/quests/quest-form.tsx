@@ -25,6 +25,7 @@ type Quest = {
   title: string;
   description: string | null;
   estimatedMinutes: number | null;
+  hasSchedule: boolean;
 };
 
 type TodayAssignment = {
@@ -70,7 +71,15 @@ export function QuestForm({
   const completedTodayQuestIds = new Set(
     todayAssignments.filter((a) => a.assignment.status === "completed").map((a) => a.quest.id)
   );
-  const availableQuests = quests.filter((q) => !completedTodayQuestIds.has(q.id));
+  // Recurring quests only belong in the list on the days they're actually
+  // assigned; quests with no recurring schedule are one-off/bonus quests
+  // that stay available any day until completed.
+  const assignedTodayQuestIds = new Set(todayAssignments.map((a) => a.quest.id));
+  const availableQuests = quests.filter((q) => {
+    if (completedTodayQuestIds.has(q.id)) return false;
+    if (assignedTodayQuestIds.has(q.id)) return true;
+    return !q.hasSchedule;
+  });
 
   // Earliest scheduled block per subject today, so a subject scheduled twice
   // still sorts/labels by its first occurrence.

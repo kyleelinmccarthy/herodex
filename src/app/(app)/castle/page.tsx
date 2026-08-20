@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireSession } from "@/lib/auth/session";
+import { requireActor } from "@/lib/auth/actor";
 import { resolveActiveChild } from "@/lib/actions/resolve-child";
 import { getCastle } from "@/lib/actions/castle";
 import { ChildSelector } from "@/components/child-selector";
@@ -13,7 +13,7 @@ export default async function CastlePage({
 }: {
   searchParams: Promise<{ child?: string }>;
 }) {
-  await requireSession();
+  await requireActor();
   const { child: selectedChildId } = await searchParams;
   const { child: activeChild, allChildren, isChildView } = await resolveActiveChild(selectedChildId);
 

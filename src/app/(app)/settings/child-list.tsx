@@ -327,7 +327,7 @@ function ChildInfoEditor({ child }: { child: Child }) {
       </div>
       {hasChanges && (
         <Button size="sm" onClick={handleSave} disabled={saving}>
-          {saving ? "Enchanting..." : "Seal Changes"}
+          {saving ? "Saving..." : "Save Changes"}
         </Button>
       )}
     </div>

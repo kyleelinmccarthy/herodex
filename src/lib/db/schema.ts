@@ -533,6 +533,7 @@ export const questAssignment = sqliteTable(
     index("assignment_child_date_idx").on(table.childId, table.date),
     index("assignment_quest_date_idx").on(table.questId, table.date),
     index("assignment_status_idx").on(table.childId, table.status, table.date),
+    uniqueIndex("assignment_child_quest_date_idx").on(table.childId, table.questId, table.date),
   ]
 );
 

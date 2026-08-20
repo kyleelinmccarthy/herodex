@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireSession } from "@/lib/auth/session";
+import { requireActor } from "@/lib/auth/actor";
 import { getFamily } from "@/lib/actions/family";
 import { resolveActiveChild } from "@/lib/actions/resolve-child";
 import { getBadges, getChildBadges, checkAndAwardBadges } from "@/lib/actions/badges";
@@ -15,7 +15,7 @@ export default async function LootPage({
 }: {
   searchParams: Promise<{ child?: string }>;
 }) {
-  await requireSession();
+  await requireActor();
   const { child: selectedChildId } = await searchParams;
   const { child: activeChild, allChildren, isChildView } = await resolveActiveChild(selectedChildId);
 

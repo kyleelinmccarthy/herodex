@@ -85,6 +85,13 @@
       "when": 1787178136350,
       "tag": "0011_last_morlun",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1787244499570,
+      "tag": "0012_silky_frightful_four",
+      "breakpoints": true
     }
   ]
 }
