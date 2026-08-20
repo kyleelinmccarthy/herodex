@@ -10,7 +10,7 @@ import { getScheduleBlocks } from "@/lib/actions/student-schedule";
 import { generateLearningLog, getSavedLog } from "@/lib/actions/chronicles";
 import { getSchoolBreaks } from "@/lib/actions/school-breaks";
 import { formatDate, getWeekStartDate } from "@/lib/utils/dates";
-import { weekdayOfDate } from "@/lib/utils/schedule-days";
+import { weekdayOfDate, currentTimeOfDay } from "@/lib/utils/schedule-days";
 import { ChildSelector } from "@/components/child-selector";
 import { GameFrame } from "@/components/game-frame";
 import { GameIcon } from "@/components/game-icon";
@@ -150,7 +150,14 @@ async function TodayView({ childId, isChildView }: { childId: string; isChildVie
           </GameFrame>
         )}
 
-        <QuestForm childId={childId} subjects={subjects} quests={quests} todayAssignments={todayAssignments} />
+        <QuestForm
+          childId={childId}
+          subjects={subjects}
+          quests={quests}
+          todayAssignments={todayAssignments}
+          todaysBlocks={todaysBlocks}
+          nowTime={currentTimeOfDay()}
+        />
       </div>
 
       <GameFrame title={isChildView ? "Adventure Log" : "Recent Adventures"} icon={<GameIcon name="book" className="size-5 text-[var(--gold-bright)]" />}>

@@ -11,6 +11,7 @@ import { GameIcon } from "@/components/game-icon";
 import { createAssignment, completeAssignment } from "@/lib/actions/quest-assignments";
 import { useQuestTimer } from "@/hooks/use-quest-timer";
 import { formatDate } from "@/lib/utils/dates";
+import { formatTimeOfDay } from "@/lib/utils/schedule-days";
 
 type Subject = {
   id: string;
@@ -31,16 +32,26 @@ type TodayAssignment = {
   quest: { id: string };
 };
 
+type ScheduleBlock = {
+  subjectId: string;
+  startTime: string;
+  endTime: string;
+};
+
 export function QuestForm({
   childId,
   subjects,
   quests,
   todayAssignments,
+  todaysBlocks = [],
+  nowTime,
 }: {
   childId: string;
   subjects: Subject[];
   quests: Quest[];
   todayAssignments: TodayAssignment[];
+  todaysBlocks?: ScheduleBlock[];
+  nowTime?: string;
 }) {
   const router = useRouter();
   const { startTimer } = useQuestTimer();
@@ -55,9 +66,50 @@ export function QuestForm({
     todayAssignments.map((a) => [a.quest.id, a.assignment.id])
   );
 
-  const [selectedQuestId, setSelectedQuestId] = useState(quests[0]?.id ?? "");
-  const selectedQuest = quests.find((q) => q.id === selectedQuestId);
+  // A quest already completed today shouldn't still be offered to start again.
+  const completedTodayQuestIds = new Set(
+    todayAssignments.filter((a) => a.assignment.status === "completed").map((a) => a.quest.id)
+  );
+  const availableQuests = quests.filter((q) => !completedTodayQuestIds.has(q.id));
+
+  // Earliest scheduled block per subject today, so a subject scheduled twice
+  // still sorts/labels by its first occurrence.
+  const blockBySubjectId = new Map<string, ScheduleBlock>();
+  for (const block of todaysBlocks) {
+    const existing = blockBySubjectId.get(block.subjectId);
+    if (!existing || block.startTime < existing.startTime) {
+      blockBySubjectId.set(block.subjectId, block);
+    }
+  }
+
+  function blockStatus(block: ScheduleBlock | undefined): "current" | "upcoming" | "past" | "unscheduled" {
+    if (!block || !nowTime) return "unscheduled";
+    if (nowTime < block.startTime) return "upcoming";
+    if (nowTime >= block.endTime) return "past";
+    return "current";
+  }
+
+  // Serve up what's scheduled right now first, then what's coming up today,
+  // then anything already past, then anything with no schedule slot at all —
+  // so a hero sees what to do next instead of hunting through the full list.
+  const STATUS_RANK = { current: 0, upcoming: 1, past: 2, unscheduled: 3 };
+  const sortedQuests = availableQuests
+    .map((q, index) => ({ quest: q, block: blockBySubjectId.get(q.subjectId), index }))
+    .sort((a, b) => {
+      const rankDiff = STATUS_RANK[blockStatus(a.block)] - STATUS_RANK[blockStatus(b.block)];
+      if (rankDiff !== 0) return rankDiff;
+      if (a.block && b.block && a.block.startTime !== b.block.startTime) {
+        return a.block.startTime.localeCompare(b.block.startTime);
+      }
+      return a.index - b.index;
+    })
+    .map((entry) => entry.quest);
+
+  const [selectedQuestId, setSelectedQuestId] = useState(sortedQuests[0]?.id ?? "");
+  const selectedQuest = availableQuests.find((q) => q.id === selectedQuestId);
   const selectedSubject = subjects.find((s) => s.id === selectedQuest?.subjectId);
+  const selectedBlock = selectedQuest ? blockBySubjectId.get(selectedQuest.subjectId) : undefined;
+  const selectedStatus = blockStatus(selectedBlock);
 
   /** Return the existing assignment ID or create a new one */
   async function getOrCreateAssignment(questId: string): Promise<string> {
@@ -120,6 +172,16 @@ export function QuestForm({
     );
   }
 
+  if (availableQuests.length === 0) {
+    return (
+      <GameFrame title="Start a Quest" icon={<GameIcon name="swords" className="size-5 text-[var(--gold-bright)]" />}>
+        <div className="py-3 text-center text-sm text-muted-foreground">
+          All of today&apos;s quests are complete. Well done, hero!
+        </div>
+      </GameFrame>
+    );
+  }
+
   return (
     <GameFrame title="Start a Quest" icon={<GameIcon name="swords" className="size-5 text-[var(--gold-bright)]" />}>
       <div>
@@ -138,11 +200,14 @@ export function QuestForm({
               setManualDuration("");
             }}
           >
-            {quests.map((q) => {
+            {sortedQuests.map((q) => {
               const sub = subjects.find((s) => s.id === q.subjectId);
+              const block = blockBySubjectId.get(q.subjectId);
+              const status = blockStatus(block);
+              const timeLabel = block ? `, ${formatTimeOfDay(block.startTime)}${status === "current" ? " · now" : ""}` : "";
               return (
                 <option key={q.id} value={q.id}>
-                  {q.title}{sub ? ` (${sub.name})` : ""}
+                  {q.title}{sub ? ` (${sub.name}${timeLabel})` : ""}
                 </option>
               );
             })}
@@ -162,6 +227,13 @@ export function QuestForm({
               {selectedQuest.estimatedMinutes && (
                 <span className="text-sm text-muted-foreground">
                   ~{selectedQuest.estimatedMinutes}min
+                </span>
+              )}
+              {selectedBlock && (
+                <span
+                  className={`text-xs font-medium ${selectedStatus === "current" ? "text-[var(--gold-bright)]" : "text-muted-foreground"}`}
+                >
+                  {selectedStatus === "current" ? "Scheduled now" : "Scheduled"} · {formatTimeOfDay(selectedBlock.startTime)}–{formatTimeOfDay(selectedBlock.endTime)}
                 </span>
               )}
             </div>

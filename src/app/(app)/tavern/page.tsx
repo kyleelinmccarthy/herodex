@@ -6,9 +6,11 @@ import { getSubjects } from "@/lib/actions/subjects";
 import { getRecentActivities } from "@/lib/actions/activities";
 import { getAssignmentsForDate, generateAssignmentsFromSchedules } from "@/lib/actions/quest-assignments";
 import { getQuests } from "@/lib/actions/quests";
+import { getScheduleBlocks } from "@/lib/actions/student-schedule";
 import { getBadges, getChildBadges, checkAndAwardBadges } from "@/lib/actions/badges";
 import { getChildAvatarUnlocks } from "@/lib/actions/avatar";
 import { formatDate } from "@/lib/utils/dates";
+import { weekdayOfDate, currentTimeOfDay } from "@/lib/utils/schedule-days";
 import { ChildSelector } from "@/components/child-selector";
 import { GameFrame } from "@/components/game-frame";
 import { Avatar } from "@/components/avatar";
@@ -16,6 +18,8 @@ import { TavernAvatarCard } from "./tavern-avatar-card";
 import { TimerCleanup } from "@/components/timer-cleanup";
 import { QuestForm } from "../quests/quest-form";
 import { QuestLog } from "../quests/quest-log";
+import { QuestAssignmentCard } from "@/components/quest-assignment-card";
+import { TodaySchedule } from "@/components/today-schedule";
 import type { AvatarConfig } from "@/lib/utils/avatar-catalog";
 import { GameIcon, BADGE_ICONS } from "@/components/game-icon";
 
@@ -74,7 +78,7 @@ export default async function TavernPage({
   const today = formatDate(new Date());
   await generateAssignmentsFromSchedules(activeChild.id, today, today);
 
-  const [subjects, recentActivities, allBadges, earnedBadges, todayAssignments, quests, avatarUnlocks] = await Promise.all([
+  const [subjects, recentActivities, allBadges, earnedBadges, todayAssignments, quests, avatarUnlocks, allBlocks] = await Promise.all([
     getSubjects(activeChild.id),
     getRecentActivities(activeChild.id, 50),
     getBadges(),
@@ -82,7 +86,10 @@ export default async function TavernPage({
     getAssignmentsForDate(activeChild.id, today),
     getQuests(activeChild.id),
     getChildAvatarUnlocks(activeChild.id),
+    getScheduleBlocks(activeChild.id),
   ]);
+
+  const todaysBlocks = allBlocks.filter((b) => b.dayOfWeek === weekdayOfDate(today));
 
   const pendingIds = todayAssignments
     .filter((a) => a.assignment.status === "pending")
@@ -113,13 +120,13 @@ export default async function TavernPage({
         )}
       </div>
 
-      {/* ═══ ROW 1: Quest Log | Character | Quest Form ═══ */}
+      {/* ═══ ROW 1: Assigned Quests | Character | Quest Form ═══ */}
       <div className="hud-row-main">
 
-        {/* LEFT: Recent Adventures (quest log) */}
+        {/* LEFT: Assigned Quests (today's quest assignments) */}
         <GameFrame
-          title="Recent Adventures"
-          icon={<GameIcon name="book" className="size-4 text-[var(--gold-bright)]" />}
+          title={isChildView ? "Today's Quests" : "Assigned Quests"}
+          icon={<GameIcon name="swords" className="size-4 text-[var(--gold-bright)]" />}
           className="hud-panel-left"
           action={
             <Link href="/quests" className="text-xs font-medium text-primary hover:underline">
@@ -128,7 +135,25 @@ export default async function TavernPage({
           }
         >
           <div className="hud-scroll-panel">
-            <QuestLog activities={recentActivities} subjects={subjects} />
+            {todayAssignments.length === 0 ? (
+              <div className="py-4 text-center">
+                <GameIcon name="scroll" className="mx-auto size-8 text-[var(--gold-bright)]" />
+                <p className="mt-2 text-sm text-muted-foreground">No quests assigned for today.</p>
+              </div>
+            ) : todaysBlocks.length > 0 ? (
+              <TodaySchedule
+                blocks={todaysBlocks}
+                subjects={subjects}
+                assignments={todayAssignments}
+                isChildView={isChildView}
+              />
+            ) : (
+              <div className="space-y-2">
+                {todayAssignments.map((a) => (
+                  <QuestAssignmentCard key={a.assignment.id} data={a} isChildView={isChildView} />
+                ))}
+              </div>
+            )}
           </div>
         </GameFrame>
 
@@ -196,7 +221,14 @@ export default async function TavernPage({
 
         {/* RIGHT: Start a Quest (quest form) */}
         <div className="hud-panel-right">
-          <QuestForm childId={activeChild.id} subjects={subjects} quests={quests} todayAssignments={todayAssignments} />
+          <QuestForm
+            childId={activeChild.id}
+            subjects={subjects}
+            quests={quests}
+            todayAssignments={todayAssignments}
+            todaysBlocks={todaysBlocks}
+            nowTime={currentTimeOfDay()}
+          />
         </div>
       </div>
 
@@ -303,6 +335,21 @@ export default async function TavernPage({
                 ))}
               </div>
             )}
+          </GameFrame>
+
+          {/* Recent Adventures (quest log) */}
+          <GameFrame
+            title="Recent Adventures"
+            icon={<GameIcon name="book" className="size-4 text-[var(--gold-bright)]" />}
+            action={
+              <Link href="/quests" className="text-xs font-medium text-primary hover:underline">
+                Full log →
+              </Link>
+            }
+          >
+            <div className="hud-scroll-panel">
+              <QuestLog activities={recentActivities} subjects={subjects} />
+            </div>
           </GameFrame>
 
           {allBadges.filter((b) => !earnedIds.has(b.id)).length > 0 && (

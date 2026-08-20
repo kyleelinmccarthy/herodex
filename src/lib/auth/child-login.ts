@@ -24,18 +24,33 @@ export type HeroOption = {
   childId: string;
   displayName: string;
   avatarConfig: string | null;
+  pinEnabled: boolean;
 };
 
-/** PIN-enabled heroes for a family (for the avatar picker). */
-export async function heroesForFamily(familyId: string): Promise<HeroOption[]> {
+/**
+ * Heroes for the avatar picker. Standalone (family-code) devices only ever
+ * show PIN-enabled heroes, since the code alone is the only thing proving
+ * who's allowed to pick. Hand-off (parent already signed in) can show every
+ * child in the family — the parent's session already proves who's allowed.
+ */
+export async function heroesForFamily(
+  familyId: string,
+  opts: { requirePin?: boolean } = {}
+): Promise<HeroOption[]> {
+  const { requirePin = true } = opts;
   const rows = await db
     .select({
       childId: schema.child.id,
       displayName: schema.child.displayName,
       avatarConfig: schema.child.avatarConfig,
+      pinEnabled: schema.child.pinEnabled,
     })
     .from(schema.child)
-    .where(and(eq(schema.child.familyId, familyId), eq(schema.child.pinEnabled, true)));
+    .where(
+      requirePin
+        ? and(eq(schema.child.familyId, familyId), eq(schema.child.pinEnabled, true))
+        : eq(schema.child.familyId, familyId)
+    );
   return rows;
 }
 

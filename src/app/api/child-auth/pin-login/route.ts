@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
   const childId = typeof body.childId === "string" ? body.childId : "";
   const pin = typeof body.pin === "string" ? body.pin : "";
   const familyCode = typeof body.familyCode === "string" ? body.familyCode : undefined;
-  if (!childId || !pin) {
+  if (!childId) {
     return NextResponse.json({ error: GENERIC_ERROR }, { status: 400 });
   }
 
@@ -62,14 +62,19 @@ export async function POST(request: NextRequest) {
     .limit(1);
   const child = rows[0];
 
-  const ok =
-    child &&
-    familyId !== null &&
-    child.familyId === familyId &&
-    child.pinEnabled &&
-    child.pinHash
-      ? await verifyPin(pin, child.pinHash)
-      : false;
+  // Hand-off (no family code) means this request is already backed by a
+  // signed-in parent's session — see resolveFamilyForPinLogin. A child with
+  // no PIN set can't ever satisfy a PIN check, but the parent's session
+  // already proves who's allowed, so let it through without one.
+  const isHandoff = !familyCode;
+  const belongsToFamily = !!child && familyId !== null && child.familyId === familyId;
+
+  let ok = false;
+  if (belongsToFamily && child.pinEnabled && child.pinHash) {
+    ok = !!pin && (await verifyPin(pin, child.pinHash));
+  } else if (belongsToFamily && isHandoff) {
+    ok = true;
+  }
 
   if (!ok || !child) {
     await recordPinFailure(childId, ip);

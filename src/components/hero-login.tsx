@@ -9,7 +9,12 @@ import { Avatar } from "@/components/avatar";
 import { cn } from "@/lib/utils";
 import type { AvatarConfig } from "@/lib/utils/avatar-catalog";
 
-type Hero = { childId: string; displayName: string; avatarConfig: string | null };
+type Hero = {
+  childId: string;
+  displayName: string;
+  avatarConfig: string | null;
+  pinEnabled: boolean;
+};
 
 // Family codes are always 8 characters (see generateLoginCode in child-login.ts).
 const FAMILY_CODE_LENGTH = 8;
@@ -117,6 +122,9 @@ export function HeroLogin({
   }
 
   const hasHeroes = !!heroes && heroes.length > 0;
+  // Hand-off mode already knows who the parent is, so a hero with no PIN set
+  // can be entered directly — no PIN prompt needed.
+  const requiresPin = !(mode === "handoff" && selected && !selected.pinEnabled);
 
   return (
     <div className="space-y-5">
@@ -167,7 +175,9 @@ export function HeroLogin({
 
       {heroes && heroes.length === 0 && !codeError && (
         <p className="text-sm text-muted-foreground">
-          No heroes have a PIN yet — a grown-up can add one in Settings.
+          {mode === "standalone"
+            ? "No heroes have a PIN yet — a grown-up can add one in Settings."
+            : "No heroes found for this family yet."}
         </p>
       )}
 
@@ -210,31 +220,43 @@ export function HeroLogin({
       </div>
 
       <form onSubmit={handlePinSubmit} className="space-y-2">
-        <Label htmlFor="pin">{selected ? `${selected.displayName}'s PIN` : "PIN"}</Label>
-        <Input
-          id="pin"
-          type="password"
-          inputMode="numeric"
-          pattern="\d{4,6}"
-          minLength={4}
-          maxLength={6}
-          value={pin}
-          onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
-          placeholder={selected ? "••••" : "Pick your hero first"}
-          disabled={!selected}
-          className={cn(
-            "text-center disabled:opacity-50",
-            selected ? "text-2xl tracking-[0.5em]" : "text-sm tracking-normal"
-          )}
-          required
-        />
+        {requiresPin && (
+          <>
+            <Label htmlFor="pin">{selected ? `${selected.displayName}'s PIN` : "PIN"}</Label>
+            <Input
+              id="pin"
+              type="password"
+              inputMode="numeric"
+              pattern="\d{4,6}"
+              minLength={4}
+              maxLength={6}
+              value={pin}
+              onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
+              placeholder={selected ? "••••" : "Pick your hero first"}
+              disabled={!selected}
+              className={cn(
+                "text-center disabled:opacity-50",
+                selected ? "text-2xl tracking-[0.5em]" : "text-sm tracking-normal"
+              )}
+              required
+            />
+          </>
+        )}
         {pinError && (
           <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
             {pinError}
           </div>
         )}
-        <Button type="submit" className="w-full" disabled={!selected || submitting || pin.length < 4}>
-          {submitting ? "Entering..." : "Enter the Realm"}
+        <Button
+          type="submit"
+          className="w-full"
+          disabled={!selected || submitting || (requiresPin && pin.length < 4)}
+        >
+          {submitting
+            ? "Entering..."
+            : selected && !requiresPin
+              ? `Play as ${selected.displayName}`
+              : "Enter the Realm"}
         </Button>
       </form>
     </div>

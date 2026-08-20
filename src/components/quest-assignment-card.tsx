@@ -188,7 +188,7 @@ export function QuestAssignmentCard({
                 <Button size="sm" variant="outline" onClick={() => setShowQuickComplete(true)} disabled={acting} className="!border-[var(--gold-bright)]">
                   Mark Done
                 </Button>
-                <Button size="sm" variant="ghost" onClick={handleSkip} disabled={acting}>
+                <Button size="sm" variant="ghost" onClick={handleSkip} disabled={acting} title="Only visible to parents — kids can't skip quests">
                   Skip
                 </Button>
               </>
@@ -218,7 +218,7 @@ export function QuestAssignmentCard({
             Cancel
           </Button>
           {isChildView ? null : (
-            <Button size="sm" variant="ghost" onClick={handleSkip} disabled={acting} className="ml-auto">
+            <Button size="sm" variant="ghost" onClick={handleSkip} disabled={acting} className="ml-auto" title="Only visible to parents — kids can't skip quests">
               Skip
             </Button>
           )}

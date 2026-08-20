@@ -57,6 +57,12 @@ export function weekdayOfDate(isoDate: string): DayOfWeek {
   return JS_DAY_ORDER[d.getUTCDay()];
 }
 
+/** The current local wall-clock time as an "HH:mm" string. */
+export function currentTimeOfDay(): string {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
 /** The weekday code for today, in the browser's local timezone. */
 export function todayDayOfWeek(): DayOfWeek {
   return JS_DAY_ORDER[new Date().getDay()];
