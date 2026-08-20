@@ -10,11 +10,61 @@ import { Switch } from "@/components/ui/switch";
 import { GameFrame } from "@/components/game-frame";
 import { GameIcon } from "@/components/game-icon";
 import {
+  copyScheduleBlocks,
   createScheduleBlock,
   deleteScheduleBlock,
   setSchoolDays,
 } from "@/lib/actions/student-schedule";
-import { DAYS_OF_WEEK, timeRangesOverlap, type DayOfWeek } from "@/lib/utils/schedule-days";
+import {
+  DAYS_OF_WEEK,
+  addMinutesToTime,
+  formatTimeOfDay,
+  timeRangesOverlap,
+  timeToMinutes,
+  type DayOfWeek,
+} from "@/lib/utils/schedule-days";
+
+const LAST_SLOT_KEY = "kingdomsandcrowns-last-schedule-slot";
+const DEFAULT_SLOT_DURATION_MINUTES = 45;
+
+function readLastTimeSlot(): { startTime: string; endTime: string } | null {
+  try {
+    const raw = localStorage.getItem(LAST_SLOT_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (typeof parsed?.startTime === "string" && typeof parsed?.endTime === "string") {
+      return parsed;
+    }
+  } catch {
+    // ignore malformed/inaccessible storage
+  }
+  return null;
+}
+
+function writeLastTimeSlot(startTime: string, endTime: string) {
+  try {
+    localStorage.setItem(LAST_SLOT_KEY, JSON.stringify({ startTime, endTime }));
+  } catch {
+    // ignore inaccessible storage
+  }
+}
+
+/**
+ * Defaults a new block to start right where the day's last class ends (falling back to the
+ * last slot used anywhere), keeping the same duration. Because times are plain minutes-since-
+ * midnight arithmetic, a slot that crosses noon rolls from AM to PM on its own.
+ */
+function defaultTimeSlot(existingBlocksForDay: { endTime: string }[]) {
+  const lastEndForDay = existingBlocksForDay.reduce<string | null>(
+    (latest, b) => (latest === null || b.endTime > latest ? b.endTime : latest),
+    null
+  );
+  const lastSlot = readLastTimeSlot();
+  const startTime = lastEndForDay ?? lastSlot?.endTime ?? "09:00";
+  const lastDuration = lastSlot ? timeToMinutes(lastSlot.endTime) - timeToMinutes(lastSlot.startTime) : 0;
+  const duration = lastDuration > 0 ? lastDuration : DEFAULT_SLOT_DURATION_MINUTES;
+  return { startTime, endTime: addMinutesToTime(startTime, duration) };
+}
 
 const DAY_LABELS: Record<DayOfWeek, string> = {
   mon: "Monday",
@@ -88,6 +138,7 @@ export function StudentScheduleEditor({
               isSchoolDay={schoolDays.includes(day)}
               subjects={subjects}
               blocks={blocks.filter((b) => b.dayOfWeek === day)}
+              allBlocks={blocks}
               canEdit={canEdit}
               onToggleSchoolDay={() => toggleSchoolDay(day)}
             />
@@ -104,6 +155,7 @@ function DayRow({
   isSchoolDay,
   subjects,
   blocks,
+  allBlocks,
   canEdit,
   onToggleSchoolDay,
 }: {
@@ -112,13 +164,18 @@ function DayRow({
   isSchoolDay: boolean;
   subjects: Subject[];
   blocks: Block[];
+  allBlocks: Block[];
   canEdit: boolean;
   onToggleSchoolDay: () => void;
 }) {
   const router = useRouter();
-  const [showAdd, setShowAdd] = useState(false);
+  const [mode, setMode] = useState<"none" | "add" | "copy">("none");
   const [error, setError] = useState("");
   const sorted = [...blocks].sort((a, b) => a.startTime.localeCompare(b.startTime));
+  const otherDays = DAYS_OF_WEEK.filter((d) => d !== day).map((d) => ({
+    day: d,
+    count: allBlocks.filter((b) => b.dayOfWeek === d).length,
+  }));
 
   async function handleRemove(blockId: string) {
     try {
@@ -183,7 +240,7 @@ function DayRow({
                 />
                 <span className="flex-1 text-sm">{subject?.name ?? "Unknown"}</span>
                 <span className="text-xs text-muted-foreground">
-                  {block.startTime}&ndash;{block.endTime}
+                  {formatTimeOfDay(block.startTime)}&ndash;{formatTimeOfDay(block.endTime)}
                 </span>
                 {canEdit && (
                   <Button
@@ -201,19 +258,34 @@ function DayRow({
 
           {canEdit && (
             <>
-              {showAdd ? (
+              {mode === "add" && (
                 <AddBlockForm
                   childId={childId}
                   day={day}
                   subjects={subjects}
                   existingBlocks={sorted}
-                  onDone={() => setShowAdd(false)}
+                  onDone={() => setMode("none")}
                   onError={setError}
                 />
-              ) : (
-                <Button size="sm" variant="outline" onClick={() => setShowAdd(true)}>
-                  + Add Class
-                </Button>
+              )}
+              {mode === "copy" && (
+                <CopyDayForm
+                  childId={childId}
+                  day={day}
+                  otherDays={otherDays}
+                  onDone={() => setMode("none")}
+                  onError={setError}
+                />
+              )}
+              {mode === "none" && (
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" onClick={() => setMode("add")}>
+                    + Add Class
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setMode("copy")}>
+                    Copy Day
+                  </Button>
+                </div>
               )}
             </>
           )}
@@ -239,9 +311,11 @@ function AddBlockForm({
   onError: (msg: string) => void;
 }) {
   const router = useRouter();
-  const [subjectId, setSubjectId] = useState(subjects[0]?.id ?? "");
-  const [startTime, setStartTime] = useState("09:00");
-  const [endTime, setEndTime] = useState("09:45");
+  const sortedSubjects = [...subjects].sort((a, b) => a.name.localeCompare(b.name));
+  const [subjectId, setSubjectId] = useState(sortedSubjects[0]?.id ?? "");
+  const [defaults] = useState(() => defaultTimeSlot(existingBlocks));
+  const [startTime, setStartTime] = useState(defaults.startTime);
+  const [endTime, setEndTime] = useState(defaults.endTime);
   const [saving, setSaving] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -264,7 +338,9 @@ function AddBlockForm({
     const conflict = existingBlocks.find((b) => timeRangesOverlap(startTime, endTime, b.startTime, b.endTime));
     if (conflict) {
       const conflictName = subjects.find((s) => s.id === conflict.subjectId)?.name ?? "another class";
-      onError(`That overlaps with ${conflictName} (${conflict.startTime}–${conflict.endTime}).`);
+      onError(
+        `That overlaps with ${conflictName} (${formatTimeOfDay(conflict.startTime)}–${formatTimeOfDay(conflict.endTime)}).`
+      );
       return;
     }
 
@@ -272,6 +348,7 @@ function AddBlockForm({
     onError("");
     try {
       await createScheduleBlock(childId, { subjectId, dayOfWeek: day, startTime, endTime });
+      writeLastTimeSlot(startTime, endTime);
       router.refresh();
       onDone();
     } catch (err) {
@@ -286,7 +363,7 @@ function AddBlockForm({
       <div className="space-y-1">
         <Label className="text-xs">Subject</Label>
         <Select value={subjectId} onChange={(e) => setSubjectId(e.target.value)}>
-          {subjects.map((s) => (
+          {sortedSubjects.map((s) => (
             <option key={s.id} value={s.id}>
               {s.name}
             </option>
@@ -312,5 +389,82 @@ function AddBlockForm({
         </Button>
       </div>
     </form>
+  );
+}
+
+function CopyDayForm({
+  childId,
+  day,
+  otherDays,
+  onDone,
+  onError,
+}: {
+  childId: string;
+  day: DayOfWeek;
+  otherDays: { day: DayOfWeek; count: number }[];
+  onDone: () => void;
+  onError: (msg: string) => void;
+}) {
+  const router = useRouter();
+  const withBlocks = otherDays.filter((d) => d.count > 0);
+  const [fromDay, setFromDay] = useState<DayOfWeek | "">(withBlocks[0]?.day ?? "");
+  const [saving, setSaving] = useState(false);
+
+  async function handleCopy() {
+    if (!fromDay) return;
+    if (
+      !confirm(
+        `Copy ${DAY_LABELS[fromDay]}'s schedule to ${DAY_LABELS[day]}? This will replace any classes currently on ${DAY_LABELS[day]}.`
+      )
+    ) {
+      return;
+    }
+    setSaving(true);
+    onError("");
+    try {
+      await copyScheduleBlocks(childId, fromDay, day);
+      router.refresh();
+      onDone();
+    } catch (err) {
+      onError(err instanceof Error ? err.message : "Failed to copy schedule");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (withBlocks.length === 0) {
+    return (
+      <div className="rounded-md border border-border/30 bg-background/40 p-3 text-sm text-muted-foreground">
+        No other days have classes to copy yet.
+        <div className="mt-2">
+          <Button size="sm" variant="ghost" type="button" onClick={onDone}>
+            Cancel
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3 rounded-md border border-border/30 bg-background/40 p-3">
+      <div className="space-y-1">
+        <Label className="text-xs">Copy from</Label>
+        <Select value={fromDay} onChange={(e) => setFromDay(e.target.value as DayOfWeek)}>
+          {withBlocks.map(({ day: d, count }) => (
+            <option key={d} value={d}>
+              {DAY_LABELS[d]} ({count} class{count === 1 ? "" : "es"})
+            </option>
+          ))}
+        </Select>
+      </div>
+      <div className="flex gap-2">
+        <Button size="sm" type="button" disabled={saving} onClick={handleCopy}>
+          {saving ? "Copying..." : "Copy"}
+        </Button>
+        <Button size="sm" variant="ghost" type="button" onClick={onDone}>
+          Cancel
+        </Button>
+      </div>
+    </div>
   );
 }

@@ -76,9 +76,10 @@ export function QuestTemplateForm({
 }) {
   const router = useRouter();
   const isEditing = !!quest;
+  const sortedSubjects = [...subjects].sort((a, b) => a.name.localeCompare(b.name));
 
   const [title, setTitle] = useState(quest?.title ?? "");
-  const [subjectId, setSubjectId] = useState(quest?.subjectId ?? subjects[0]?.id ?? "");
+  const [subjectId, setSubjectId] = useState(quest?.subjectId ?? sortedSubjects[0]?.id ?? "");
   const [description, setDescription] = useState(quest?.description ?? "");
   const [estimatedMinutes, setEstimatedMinutes] = useState(
     quest?.estimatedMinutes?.toString() ?? ""
@@ -218,7 +219,7 @@ export function QuestTemplateForm({
               onChange={(e) => setSubjectId(e.target.value)}
               required
             >
-              {subjects.map((s) => (
+              {sortedSubjects.map((s) => (
                 <option key={s.id} value={s.id}>{s.name}</option>
               ))}
             </Select>

@@ -24,6 +24,33 @@ export function timeRangesOverlap(
   return aStart < bEnd && bStart < aEnd;
 }
 
+/** Minutes since midnight for an "HH:mm" time string. */
+export function timeToMinutes(time: string): number {
+  const [h, m] = time.split(":").map(Number);
+  return h * 60 + m;
+}
+
+/** An "HH:mm" time string for a given number of minutes since midnight, clamped to the same day. */
+export function minutesToTime(minutes: number): string {
+  const clamped = Math.max(0, Math.min(23 * 60 + 59, minutes));
+  const h = Math.floor(clamped / 60);
+  const m = clamped % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+/** Adds (or subtracts, if negative) minutes to an "HH:mm" time string, clamped to the same day. */
+export function addMinutesToTime(time: string, minutes: number): string {
+  return minutesToTime(timeToMinutes(time) + minutes);
+}
+
+/** Formats an "HH:mm" time string as 12-hour clock time, e.g. "13:05" -> "1:05 PM". */
+export function formatTimeOfDay(time: string): string {
+  const [h, m] = time.split(":").map(Number);
+  const period = h < 12 ? "AM" : "PM";
+  const hour12 = h % 12 === 0 ? 12 : h % 12;
+  return `${hour12}:${String(m).padStart(2, "0")} ${period}`;
+}
+
 /** The weekday code for an ISO "YYYY-MM-DD" date. */
 export function weekdayOfDate(isoDate: string): DayOfWeek {
   const d = new Date(`${isoDate}T00:00:00Z`);

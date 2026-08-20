@@ -161,6 +161,41 @@ export async function updateScheduleBlock(
     .where(eq(schema.scheduleBlock.id, blockId));
 }
 
+export async function copyScheduleBlocks(childId: string, fromDay: DayOfWeek, toDay: DayOfWeek) {
+  const { access } = await requireChildAccess(childId, { write: true });
+  await assertCanEditScheduleContent(childId, access);
+
+  if (fromDay === toDay) {
+    throw new Error("Pick a different day to copy from.");
+  }
+
+  const sourceBlocks = await db
+    .select()
+    .from(schema.scheduleBlock)
+    .where(and(eq(schema.scheduleBlock.childId, childId), eq(schema.scheduleBlock.dayOfWeek, fromDay)));
+  if (sourceBlocks.length === 0) {
+    throw new Error("That day has no classes to copy.");
+  }
+
+  await db
+    .delete(schema.scheduleBlock)
+    .where(and(eq(schema.scheduleBlock.childId, childId), eq(schema.scheduleBlock.dayOfWeek, toDay)));
+
+  const now = new Date();
+  await db.insert(schema.scheduleBlock).values(
+    sourceBlocks.map((b) => ({
+      id: nanoid(),
+      childId,
+      subjectId: b.subjectId,
+      dayOfWeek: toDay,
+      startTime: b.startTime,
+      endTime: b.endTime,
+      createdAt: now,
+      updatedAt: now,
+    }))
+  );
+}
+
 export async function deleteScheduleBlock(blockId: string) {
   const { access } = await requireScheduleBlockAccess(blockId, { write: true });
   const rows = await db
