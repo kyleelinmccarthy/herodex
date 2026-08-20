@@ -31,11 +31,13 @@ const FAMILY_CODE_LENGTH = 8;
 export function HeroLogin({
   mode,
   prefillCode = "",
+  preselectChildId,
   onDone,
   onSwitchToEmail,
 }: {
   mode: "standalone" | "handoff";
   prefillCode?: string;
+  preselectChildId?: string;
   onDone?: () => void;
   onSwitchToEmail?: () => void;
 }) {
@@ -63,7 +65,9 @@ export function HeroLogin({
       const data = await res.json();
       const list: Hero[] = data.heroes ?? [];
       setHeroes(list);
-      if (list.length === 1) setSelected(list[0]);
+      const preselected = preselectChildId ? list.find((h) => h.childId === preselectChildId) : undefined;
+      if (preselected) setSelected(preselected);
+      else if (list.length === 1) setSelected(list[0]);
       if (list.length === 0 && familyCode) {
         setCodeError(
           "No heroes found for that code. Double-check it with a grown-up, or ask them to set a PIN in Settings."
@@ -72,7 +76,7 @@ export function HeroLogin({
     } finally {
       setLoadingHeroes(false);
     }
-  }, []);
+  }, [preselectChildId]);
 
   // Handoff mode (parent signed in) loads immediately.
   useEffect(() => {

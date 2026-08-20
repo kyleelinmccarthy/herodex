@@ -10,6 +10,7 @@ import { GameIcon, type GameIconName } from "@/components/game-icon";
 import { Avatar } from "@/components/avatar";
 import type { AvatarConfig } from "@/lib/utils/avatar-catalog";
 import type { getChildren } from "@/lib/actions/children";
+import { ViewAsHeroButton } from "./view-as-hero-button";
 
 type ChildRow = Awaited<ReturnType<typeof getChildren>>[number];
 
@@ -36,7 +37,7 @@ export async function ParentDashboard({ allChildren }: { allChildren: ChildRow[]
   const upcomingCombined = perChild
     .flatMap(({ child, upcoming }) =>
       upcoming
-        .filter((a) => a.assignment.date > today && a.assignment.status === "pending")
+        .filter((a) => a.assignment.date >= today && a.assignment.status === "pending")
         .map((a) => ({ ...a, childName: child.displayName }))
     )
     .sort((a, b) => a.assignment.date.localeCompare(b.assignment.date))
@@ -135,13 +136,14 @@ function ChildSummaryCard({
           </div>
         </div>
       </div>
-      <div className="mt-3 flex gap-3 text-xs font-medium">
+      <div className="mt-3 flex flex-wrap gap-3 text-xs font-medium">
         <Link href={`/quests?child=${child.id}`} className="text-primary hover:underline">
           Quest log →
         </Link>
         <Link href={`/scrolls?child=${child.id}`} className="text-primary hover:underline">
           Assign quests →
         </Link>
+        <ViewAsHeroButton childId={child.id} childName={child.displayName} />
       </div>
     </GameFrame>
   );

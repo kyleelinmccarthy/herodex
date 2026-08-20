@@ -6,10 +6,17 @@ export type NavItem = {
   icon: GameIconName;
   description: string;
   parentOnly?: boolean;
-  heroView?: boolean;
 };
 
+// Kept in alphabetical order by label — both the parent and hero nav bars
+// render this same order (heroes just get the parentOnly items filtered out).
 export const MAIN_NAV: NavItem[] = [
+  {
+    href: "/loot",
+    label: "Loot",
+    icon: "gem",
+    description: "Your treasure chest — the rewards and achievements you've earned from quests.",
+  },
   {
     href: "/scrolls",
     label: "Quest Giver",
@@ -18,39 +25,28 @@ export const MAIN_NAV: NavItem[] = [
     parentOnly: true,
   },
   {
-    href: "/tavern",
-    label: "Tavern",
-    icon: "tavern",
-    description: "Your home base — see your heroes, today's quests, and what's happening in your kingdom.",
-    heroView: true,
-  },
-  {
     href: "/quests",
     label: "Quest Log",
     icon: "scroll",
     description: "Your tasks and chores. Complete quests to earn XP and rewards.",
-    heroView: true,
-  },
-  {
-    href: "/loot",
-    label: "Loot",
-    icon: "gem",
-    description: "Your treasure chest — the rewards and achievements you've earned from quests.",
-    heroView: true,
   },
   {
     href: "/leaderboard",
     label: "Ranks",
     icon: "trophy",
     description: "The Hall of Legends — see how heroes stack up on family and community leaderboards.",
-    heroView: true,
   },
   {
     href: "/schedule",
     label: "Schedule",
     icon: "calendar",
     description: "The weekly schedule — classes for each day of the week and which days are school days.",
-    heroView: true,
+  },
+  {
+    href: "/tavern",
+    label: "Tavern",
+    icon: "tavern",
+    description: "Your home base — see your heroes, today's quests, and what's happening in your kingdom.",
   },
 ];
 

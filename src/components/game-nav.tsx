@@ -1,6 +1,5 @@
 "use client";
 
-import { Fragment } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -75,30 +74,16 @@ export function GameNavBar({ userName, isChildView }: { userName: string; isChil
           <div className="game-navbar-corner game-navbar-corner--br" />
 
           <div className="game-navbar-main">
-            {navItems.map((item, index) => {
-              // In the parent view, mark where the hero-facing pages begin so it's
-              // clear those tabs show what the kids see (not parent tools).
-              const showHeroDivider =
-                !isChildView &&
-                item.heroView &&
-                !navItems[index - 1]?.heroView;
-              return (
-                <Fragment key={item.href}>
-                  {showHeroDivider && (
-                    <span className="game-navbar-divider" aria-hidden="true">
-                      <span className="game-navbar-divider-label">Hero&apos;s View</span>
-                    </span>
-                  )}
-                  <NavMedallion
-                    href={item.href}
-                    icon={item.icon}
-                    label={item.label}
-                    description={item.description}
-                    active={isActive(pathname, item.href)}
-                  />
-                </Fragment>
-              );
-            })}
+            {navItems.map((item) => (
+              <NavMedallion
+                key={item.href}
+                href={item.href}
+                icon={item.icon}
+                label={item.label}
+                description={item.description}
+                active={isActive(pathname, item.href)}
+              />
+            ))}
           </div>
 
           <div className="game-navbar-end">
