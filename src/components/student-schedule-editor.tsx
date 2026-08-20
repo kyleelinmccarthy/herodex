@@ -21,6 +21,7 @@ import {
   formatTimeOfDay,
   timeRangesOverlap,
   timeToMinutes,
+  todayDayOfWeek,
   type DayOfWeek,
 } from "@/lib/utils/schedule-days";
 
@@ -101,7 +102,7 @@ export function StudentScheduleEditor({
 }) {
   const router = useRouter();
   const [error, setError] = useState("");
-  const [expandedDays, setExpandedDays] = useState<Set<DayOfWeek>>(new Set());
+  const [expandedDays, setExpandedDays] = useState<Set<DayOfWeek>>(() => new Set([todayDayOfWeek()]));
   const allExpanded = expandedDays.size === DAYS_OF_WEEK.length;
 
   function toggleDayExpanded(day: DayOfWeek) {

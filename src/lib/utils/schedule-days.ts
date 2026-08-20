@@ -57,6 +57,11 @@ export function weekdayOfDate(isoDate: string): DayOfWeek {
   return JS_DAY_ORDER[d.getUTCDay()];
 }
 
+/** The weekday code for today, in the browser's local timezone. */
+export function todayDayOfWeek(): DayOfWeek {
+  return JS_DAY_ORDER[new Date().getDay()];
+}
+
 /** Adds (or subtracts, if negative) whole days to an ISO "YYYY-MM-DD" date. */
 export function addDaysToDate(isoDate: string, days: number): string {
   const d = new Date(`${isoDate}T00:00:00Z`);
