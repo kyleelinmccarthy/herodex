@@ -29,7 +29,7 @@ export async function getSchedule(questId: string) {
 export async function upsertSchedule(
   questId: string,
   data: {
-    frequency: "daily" | "weekly" | "monthly";
+    frequency: "once" | "daily" | "weekly" | "monthly";
     daysOfWeek?: string[];
     intervalWeeks?: number;
     startDate: string;

@@ -230,7 +230,9 @@ export function QuestForm({
               const sub = subjects.find((s) => s.id === q.subjectId);
               const block = blockBySubjectId.get(q.subjectId);
               const status = blockStatus(block);
-              const timeLabel = block ? `, ${formatTimeOfDay(block.startTime)}${status === "current" ? " · now" : ""}` : "";
+              const statusSuffix =
+                status === "current" ? " · now" : status === "upcoming" ? " · upcoming" : status === "past" ? " · missed" : "";
+              const timeLabel = block ? `, ${formatTimeOfDay(block.startTime)}${statusSuffix}` : "";
               return (
                 <option key={q.id} value={q.id}>
                   {q.title}{sub ? ` (${sub.name}${timeLabel})` : ""}
@@ -249,7 +251,17 @@ export function QuestForm({
                   style={{ backgroundColor: selectedSubject.color ?? "#6b7280" }}
                 />
               )}
-              <span className="text-base font-bold" style={{ color: "var(--gold-bright)" }}>{selectedQuest.title}</span>
+              <span
+                className="text-base font-bold"
+                style={{
+                  color:
+                    selectedStatus === "upcoming" || selectedStatus === "past"
+                      ? "var(--foreground)"
+                      : "var(--gold-bright)",
+                }}
+              >
+                {selectedQuest.title}
+              </span>
               {selectedQuest.estimatedMinutes && (
                 <span className="text-sm text-muted-foreground">
                   ~{selectedQuest.estimatedMinutes}min
@@ -257,9 +269,20 @@ export function QuestForm({
               )}
               {selectedBlock && (
                 <span
-                  className={`text-xs font-medium ${selectedStatus === "current" ? "text-[var(--gold-bright)]" : "text-muted-foreground"}`}
+                  className={`text-xs font-medium ${
+                    selectedStatus === "current"
+                      ? "text-[var(--gold-bright)]"
+                      : selectedStatus === "past"
+                        ? "text-destructive"
+                        : "text-muted-foreground"
+                  }`}
                 >
-                  {selectedStatus === "current" ? "Scheduled now" : "Scheduled"} · {formatTimeOfDay(selectedBlock.startTime)}–{formatTimeOfDay(selectedBlock.endTime)}
+                  {selectedStatus === "current"
+                    ? "Scheduled now"
+                    : selectedStatus === "upcoming"
+                      ? "Not due yet — scheduled for"
+                      : "Missed — was scheduled for"}{" "}
+                  {formatTimeOfDay(selectedBlock.startTime)}–{formatTimeOfDay(selectedBlock.endTime)}
                 </span>
               )}
             </div>

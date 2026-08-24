@@ -15,7 +15,7 @@ import {
   syncRepeatDaysWithStartDate,
 } from "@/lib/utils/schedule-days";
 
-type Frequency = "daily" | "weekly" | "monthly";
+type Frequency = "once" | "daily" | "weekly" | "monthly";
 
 function ordinal(n: number): string {
   const suffix = ["th", "st", "nd", "rd"][n % 10 > 3 || Math.floor((n % 100) / 10) === 1 ? 0 : n % 10];
@@ -85,7 +85,7 @@ export function QuestScheduleForm({
         daysOfWeek: frequency === "weekly" ? daysOfWeek : undefined,
         intervalWeeks: frequency === "weekly" ? intervalWeeks : undefined,
         startDate,
-        endDate: endDate || undefined,
+        endDate: frequency === "once" ? undefined : endDate || undefined,
       });
       router.refresh();
     } catch (err) {
@@ -110,6 +110,14 @@ export function QuestScheduleForm({
         <div className="space-y-2">
           <Label>Frequency</Label>
           <div className="flex gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant={frequency === "once" ? "default" : "outline"}
+              onClick={() => setFrequency("once")}
+            >
+              Once
+            </Button>
             <Button
               type="button"
               size="sm"
@@ -179,9 +187,15 @@ export function QuestScheduleForm({
           </p>
         )}
 
+        {frequency === "once" && (
+          <p className="text-[10px] text-muted-foreground">
+            This quest will be assigned only on the date below.
+          </p>
+        )}
+
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
-            <Label htmlFor="schedule-start">Start Date</Label>
+            <Label htmlFor="schedule-start">{frequency === "once" ? "Date" : "Start Date"}</Label>
             <Input
               id="schedule-start"
               type="date"
@@ -190,15 +204,17 @@ export function QuestScheduleForm({
               required
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="schedule-end">End Date (optional)</Label>
-            <Input
-              id="schedule-end"
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-            />
-          </div>
+          {frequency !== "once" && (
+            <div className="space-y-2">
+              <Label htmlFor="schedule-end">End Date (optional)</Label>
+              <Input
+                id="schedule-end"
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+              />
+            </div>
+          )}
         </div>
 
         <div className="flex gap-2">

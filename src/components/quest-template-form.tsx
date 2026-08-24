@@ -20,7 +20,7 @@ import {
 
 type Subject = { id: string; name: string; color: string | null };
 
-type RepeatFrequency = "daily" | "weekly" | "monthly";
+type RepeatFrequency = "once" | "daily" | "weekly" | "monthly";
 
 function ordinal(n: number): string {
   const suffix = ["th", "st", "nd", "rd"][n % 10 > 3 || Math.floor(n % 100 / 10) === 1 ? 0 : n % 10];
@@ -93,7 +93,7 @@ export function QuestTemplateForm({
   const defaultRepeatStartDate = schedule?.startDate ?? new Date().toISOString().slice(0, 10);
   const [repeatEnabled, setRepeatEnabled] = useState(!!schedule);
   const [repeatFrequency, setRepeatFrequency] = useState<RepeatFrequency>(
-    (schedule?.frequency as RepeatFrequency) ?? "weekly"
+    (schedule?.frequency as RepeatFrequency) ?? "once"
   );
   const [repeatDays, setRepeatDays] = useState<string[]>(
     schedule?.daysOfWeek
@@ -121,7 +121,7 @@ export function QuestTemplateForm({
     setRewardAvatarItem("");
     setShowRewards(false);
     setRepeatEnabled(false);
-    setRepeatFrequency("weekly");
+    setRepeatFrequency("once");
     setRepeatDays(defaultRepeatDaysForStartDate(today, schoolDays));
     setRepeatIntervalWeeks(1);
     setRepeatStartDate(today);
@@ -175,7 +175,7 @@ export function QuestTemplateForm({
             daysOfWeek: repeatFrequency === "weekly" ? repeatDays : undefined,
             intervalWeeks: repeatFrequency === "weekly" ? repeatIntervalWeeks : undefined,
             startDate: repeatStartDate,
-            endDate: repeatEndDate || undefined,
+            endDate: repeatFrequency === "once" ? undefined : repeatEndDate || undefined,
           }
         : undefined;
 
@@ -274,15 +274,15 @@ export function QuestTemplateForm({
           <div className="space-y-3 rounded-lg border border-dashed border-border p-3">
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label htmlFor="quest-repeat">Repeat this quest</Label>
+                <Label htmlFor="quest-repeat">Schedule this quest</Label>
                 <p className="text-[10px] text-muted-foreground">
-                  Automatically assign this quest on a schedule
+                  Assign this quest to a specific day, or have it repeat
                 </p>
               </div>
               <Switch
                 checked={repeatEnabled}
                 onCheckedChange={() => setRepeatEnabled((v) => !v)}
-                aria-label="Repeat this quest"
+                aria-label="Schedule this quest"
               />
             </div>
 
@@ -291,6 +291,14 @@ export function QuestTemplateForm({
                 <div className="space-y-2">
                   <Label>Frequency</Label>
                   <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={repeatFrequency === "once" ? "default" : "outline"}
+                      onClick={() => setRepeatFrequency("once")}
+                    >
+                      Once
+                    </Button>
                     <Button
                       type="button"
                       size="sm"
@@ -363,9 +371,15 @@ export function QuestTemplateForm({
                   </p>
                 )}
 
+                {repeatFrequency === "once" && (
+                  <p className="text-[10px] text-muted-foreground">
+                    This quest will be assigned only on the date below.
+                  </p>
+                )}
+
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="repeat-start">Start Date</Label>
+                    <Label htmlFor="repeat-start">{repeatFrequency === "once" ? "Date" : "Start Date"}</Label>
                     <Input
                       id="repeat-start"
                       type="date"
@@ -374,15 +388,17 @@ export function QuestTemplateForm({
                       required
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="repeat-end">End Date (optional)</Label>
-                    <Input
-                      id="repeat-end"
-                      type="date"
-                      value={repeatEndDate}
-                      onChange={(e) => setRepeatEndDate(e.target.value)}
-                    />
-                  </div>
+                  {repeatFrequency !== "once" && (
+                    <div className="space-y-2">
+                      <Label htmlFor="repeat-end">End Date (optional)</Label>
+                      <Input
+                        id="repeat-end"
+                        type="date"
+                        value={repeatEndDate}
+                        onChange={(e) => setRepeatEndDate(e.target.value)}
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
             )}

@@ -82,7 +82,7 @@ export default async function QuestsPage({
           </p>
         </div>
         {!isChildView && (
-          <div className="flex items-center gap-3 sm:absolute sm:right-0 sm:top-1/2 sm:-translate-y-1/2">
+          <div className="flex items-center gap-3 sm:absolute sm:right-6 sm:top-1/2 sm:-translate-y-1/2">
             <Link href={`/scrolls?child=${activeChild.id}`} className="text-xs font-medium text-primary hover:underline">
               Quest Giver →
             </Link>
@@ -205,6 +205,7 @@ async function AdventureView({
 
   return (
     <LongRest
+      key={weekStart}
       generatedText={logText}
       savedEditedText={savedLog?.editedText ?? null}
       childId={childId}

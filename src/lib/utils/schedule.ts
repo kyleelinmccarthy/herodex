@@ -4,6 +4,7 @@ const DAY_NAMES = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
  * Computes which ISO date strings (YYYY-MM-DD) within [rangeStart, rangeEnd]
  * match a recurrence pattern, respecting the schedule's own start/end bounds.
  *
+ * - "once": the single start date, if it falls in range.
  * - "daily": every date in range.
  * - "weekly": dates whose weekday is in daysOfWeek, within weeks that land on
  *   the interval (intervalWeeks weeks after the schedule's own start date;
@@ -12,10 +13,11 @@ const DAY_NAMES = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
  *   last day of shorter months (e.g. day 31 falls back to Feb 28/29).
  *
  * When schoolDays is provided, any date whose weekday isn't in it is
- * excluded regardless of frequency.
+ * excluded — except for "once", which always honors the explicitly chosen
+ * date regardless of the school-day list.
  */
 export function getScheduledDates(
-  frequency: "daily" | "weekly" | "monthly",
+  frequency: "once" | "daily" | "weekly" | "monthly",
   daysOfWeek: string[] | null,
   intervalWeeks: number | null,
   startDate: string,
@@ -40,7 +42,9 @@ export function getScheduledDates(
   let current = effectiveStart;
 
   while (current <= effectiveEnd) {
-    if (!schoolDaySet || schoolDaySet.has(weekdayName(current))) {
+    if (frequency === "once") {
+      if (current === startDate) results.push(current);
+    } else if (!schoolDaySet || schoolDaySet.has(weekdayName(current))) {
       if (frequency === "daily") {
         results.push(current);
       } else if (frequency === "weekly" && matchesDay(current, daySet!) && weeksSince(startDate, current) % interval === 0) {

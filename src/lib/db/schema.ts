@@ -500,7 +500,7 @@ export const questSchedule = sqliteTable("quest_schedule", {
     .notNull()
     .unique()
     .references(() => quest.id, { onDelete: "cascade" }),
-  frequency: text("frequency", { enum: ["daily", "weekly", "monthly"] }).notNull(),
+  frequency: text("frequency", { enum: ["once", "daily", "weekly", "monthly"] }).notNull(),
   daysOfWeek: text("days_of_week"), // JSON array e.g. ["mon","wed","fri"]; used when frequency === "weekly"
   intervalWeeks: integer("interval_weeks"), // used when frequency === "weekly"; 1 = every week, 2 = every other week, etc.
   startDate: text("start_date").notNull(), // ISO YYYY-MM-DD

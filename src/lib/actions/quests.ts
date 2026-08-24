@@ -44,7 +44,7 @@ export async function createQuest(data: {
   rewardDescription?: string;
   rewardAvatarItem?: string; // JSON: { category, itemId }
   schedule?: {
-    frequency: "daily" | "weekly" | "monthly";
+    frequency: "once" | "daily" | "weekly" | "monthly";
     daysOfWeek?: string[];
     intervalWeeks?: number;
     startDate: string;

@@ -125,7 +125,7 @@ export default async function TavernPage({
           </p>
         </div>
         {!isChildView && allChildren.length > 1 && (
-          <div className="sm:absolute sm:right-0 sm:top-1/2 sm:-translate-y-1/2">
+          <div className="sm:absolute sm:right-6 sm:top-1/2 sm:-translate-y-1/2">
             <ChildSelector kids={allChildren} selectedId={activeChild.id} />
           </div>
         )}
