@@ -162,19 +162,20 @@ export function QuestForm({
     }
   }
 
+  const parsedDuration = parseInt(manualDuration, 10);
+  const isDurationValid =
+    manualDuration.trim() !== "" && Number.isFinite(parsedDuration) && parsedDuration >= 1 && parsedDuration <= 480;
+
   async function handleQuickComplete() {
-    if (!selectedQuestId || !selectedQuest) return;
+    if (!selectedQuestId || !selectedQuest || !isDurationValid) return;
     setSaving(true);
     setError("");
     try {
       const assignmentId = await getOrCreateAssignment(selectedQuestId);
-      const duration = manualDuration
-        ? parseInt(manualDuration)
-        : selectedQuest.estimatedMinutes ?? undefined;
       await completeAssignment(assignmentId, {
         title: selectedQuest.title,
         description: description || (selectedQuest.description ?? undefined),
-        durationMinutes: duration,
+        durationMinutes: parsedDuration,
         source: "manual",
       });
       setDescription("");
@@ -310,9 +311,10 @@ export function QuestForm({
               type="number"
               value={manualDuration}
               onChange={(e) => setManualDuration(e.target.value)}
-              placeholder={selectedQuest?.estimatedMinutes ? `${selectedQuest.estimatedMinutes}` : "min"}
+              placeholder="min"
               min={1}
               max={480}
+              required
               className="w-24"
               aria-label="Duration in minutes"
             />
@@ -337,10 +339,11 @@ export function QuestForm({
               if (showDuration) {
                 handleQuickComplete();
               } else {
+                setManualDuration(selectedQuest?.estimatedMinutes ? String(selectedQuest.estimatedMinutes) : "");
                 setShowDuration(true);
               }
             }}
-            disabled={saving || !selectedQuest}
+            disabled={saving || !selectedQuest || (showDuration && !isDurationValid)}
             className="gap-2 !border-[var(--gold-bright)]"
           >
             {saving ? (

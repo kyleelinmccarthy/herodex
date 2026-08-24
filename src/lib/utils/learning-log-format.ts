@@ -43,9 +43,9 @@ function joinWithAnd(items: string[]): string {
 }
 
 const CONTINUATIONS = [
-  "They also completed",
-  "In addition, they completed",
-  "They further completed",
+  "I also completed",
+  "In addition, I completed",
+  "I further completed",
 ];
 
 export function formatLearningLog(
@@ -54,23 +54,19 @@ export function formatLearningLog(
   endDate: string,
   assignments: AssignmentRow[]
 ): string {
-  if (assignments.length === 0) {
+  const nonSkipped = assignments.filter((entry) => entry.assignment.status !== "skipped");
+
+  if (nonSkipped.length === 0) {
     return `Learning Log: ${childName}\n${formatRangeHeader(startDate, endDate)}\n\nNo assignments recorded for this period.`;
   }
 
-  const totalCount = assignments.length;
+  const totalCount = nonSkipped.length;
   let totalMinutes = 0;
   const completed: string[] = [];
-  const skipped: string[] = [];
 
-  for (const entry of assignments) {
+  for (const entry of nonSkipped) {
     const subject = entry.subject.name;
     const title = entry.quest.title;
-
-    if (entry.assignment.status === "skipped") {
-      skipped.push(`${title} in ${subject}`);
-      continue;
-    }
 
     const mins = entry.durationMinutes ?? entry.quest.estimatedMinutes;
     if (mins) totalMinutes += mins;
@@ -86,16 +82,8 @@ export function formatLearningLog(
   for (let i = 0; i < completed.length; i += CHUNK_SIZE) {
     const chunk = completed.slice(i, i + CHUNK_SIZE);
     const lead =
-      i === 0 ? `This week, ${childName} completed` : CONTINUATIONS[(i / CHUNK_SIZE - 1) % CONTINUATIONS.length];
+      i === 0 ? `This week, I completed` : CONTINUATIONS[(i / CHUNK_SIZE - 1) % CONTINUATIONS.length];
     sentences.push(`${lead} ${joinWithAnd(chunk)}.`);
-  }
-
-  if (completed.length === 0 && skipped.length > 0) {
-    sentences.push(`This week, no assignments were completed.`);
-  }
-
-  if (skipped.length > 0) {
-    sentences.push(`They skipped ${joinWithAnd(skipped)}.`);
   }
 
   const lines: string[] = [];

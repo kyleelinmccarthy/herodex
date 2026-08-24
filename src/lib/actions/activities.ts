@@ -96,6 +96,10 @@ export async function createActivity(data: {
       ? Math.max(1, Math.round((data.endedAt.getTime() - data.startedAt.getTime()) / 60000))
       : data.durationMinutes ?? null;
 
+  if (durationMinutes === null || durationMinutes < 1) {
+    throw new Error("How long did this take? Enter a duration to complete it.");
+  }
+
   await db.insert(schema.activityLog).values({
     id,
     childId: data.childId,
@@ -116,6 +120,21 @@ export async function createActivity(data: {
   await updateStreakAndXp(data.childId);
 
   return { id, title };
+}
+
+export async function updateActivity(
+  activityId: string,
+  data: { durationMinutes: number }
+) {
+  await requireActivityAccess(activityId, { write: true });
+  const durationMinutes = Math.round(data.durationMinutes);
+  if (!Number.isFinite(durationMinutes) || durationMinutes < 1) {
+    throw new Error("Duration must be at least 1 minute");
+  }
+  await db
+    .update(schema.activityLog)
+    .set({ durationMinutes, updatedAt: new Date() })
+    .where(eq(schema.activityLog.id, activityId));
 }
 
 export async function deleteActivity(activityId: string) {

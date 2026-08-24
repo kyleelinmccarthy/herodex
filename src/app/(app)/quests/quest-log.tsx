@@ -2,7 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { deleteActivity } from "@/lib/actions/activities";
+import { Input } from "@/components/ui/input";
+import { deleteActivity, updateActivity } from "@/lib/actions/activities";
 import { GameIcon } from "@/components/game-icon";
 import { useState } from "react";
 
@@ -30,7 +31,14 @@ export function QuestLog({
 }) {
   const router = useRouter();
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDuration, setEditDuration] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
   const subjectMap = new Map(subjects.map((s) => [s.id, s]));
+
+  const parsedEditDuration = parseInt(editDuration, 10);
+  const isEditDurationValid =
+    editDuration.trim() !== "" && Number.isFinite(parsedEditDuration) && parsedEditDuration >= 1 && parsedEditDuration <= 480;
 
   async function handleDelete(id: string) {
     setDeleting(id);
@@ -39,6 +47,23 @@ export function QuestLog({
       router.refresh();
     } finally {
       setDeleting(null);
+    }
+  }
+
+  function startEdit(activity: Activity) {
+    setEditingId(activity.id);
+    setEditDuration(activity.durationMinutes ? String(activity.durationMinutes) : "");
+  }
+
+  async function handleSaveEdit(id: string) {
+    if (!isEditDurationValid) return;
+    setSavingEdit(true);
+    try {
+      await updateActivity(id, { durationMinutes: parsedEditDuration });
+      setEditingId(null);
+      router.refresh();
+    } finally {
+      setSavingEdit(false);
     }
   }
 
@@ -85,22 +110,70 @@ export function QuestLog({
                     />
                     <div>
                       <p className="text-sm font-medium">{activity.title}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {subject?.name ?? "Unknown"}
-                        {activity.durationMinutes ? ` · ${activity.durationMinutes} min` : ""}
-                        {activity.description ? ` · ${activity.description}` : ""}
-                      </p>
+                      {editingId === activity.id ? (
+                        <div className="mt-1 flex items-center gap-2">
+                          <Input
+                            type="number"
+                            value={editDuration}
+                            onChange={(e) => setEditDuration(e.target.value)}
+                            min={1}
+                            max={480}
+                            required
+                            className="h-7 w-20"
+                            aria-label="Duration in minutes"
+                          />
+                          <span className="text-xs text-muted-foreground">min</span>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">
+                          {subject?.name ?? "Unknown"}
+                          {activity.durationMinutes ? ` · ${activity.durationMinutes} min` : ""}
+                          {activity.description ? ` · ${activity.description}` : ""}
+                        </p>
+                      )}
                     </div>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleDelete(activity.id)}
-                    disabled={deleting === activity.id}
-                    className="text-muted-foreground hover:text-destructive"
-                  >
-                    {deleting === activity.id ? "..." : "×"}
-                  </Button>
+                  <div className="flex shrink-0 items-center gap-1">
+                    {editingId === activity.id ? (
+                      <>
+                        <Button
+                          size="sm"
+                          onClick={() => handleSaveEdit(activity.id)}
+                          disabled={savingEdit || !isEditDurationValid}
+                        >
+                          {savingEdit ? "Saving..." : "Save"}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setEditingId(null)}
+                          disabled={savingEdit}
+                        >
+                          Cancel
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => startEdit(activity)}
+                          className="text-muted-foreground"
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDelete(activity.id)}
+                          disabled={deleting === activity.id}
+                          className="text-muted-foreground hover:text-destructive"
+                        >
+                          {deleting === activity.id ? "..." : "×"}
+                        </Button>
+                      </>
+                    )}
+                  </div>
                 </div>
               );
             })}

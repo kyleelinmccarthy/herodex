@@ -60,14 +60,23 @@ export function QuestAssignmentCard({
     stopTimer();
   }
 
+  const parsedDuration = parseInt(manualDuration, 10);
+  const isDurationValid =
+    manualDuration.trim() !== "" && Number.isFinite(parsedDuration) && parsedDuration >= 1 && parsedDuration <= 480;
+
+  function openQuickComplete() {
+    setManualDuration(quest.estimatedMinutes ? String(quest.estimatedMinutes) : "");
+    setShowQuickComplete(true);
+  }
+
   async function handleQuickComplete() {
+    if (!isDurationValid) return;
     setActing(true);
     try {
-      const duration = manualDuration ? parseInt(manualDuration) : quest.estimatedMinutes ?? undefined;
       await completeAssignment(assignment.id, {
         title: quest.title,
         description: quest.description ?? undefined,
-        durationMinutes: duration,
+        durationMinutes: parsedDuration,
         source: "manual",
       });
       router.refresh();
@@ -179,13 +188,13 @@ export function QuestAssignmentCard({
                 <Button size="sm" onClick={handleStart} disabled={acting || hasOtherTimer}>
                   Start
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => setShowQuickComplete(true)} disabled={acting} className="!border-[var(--gold-bright)]">
+                <Button size="sm" variant="outline" onClick={openQuickComplete} disabled={acting} className="!border-[var(--gold-bright)]">
                   Quick Complete
                 </Button>
               </>
             ) : (
               <>
-                <Button size="sm" variant="outline" onClick={() => setShowQuickComplete(true)} disabled={acting} className="!border-[var(--gold-bright)]">
+                <Button size="sm" variant="outline" onClick={openQuickComplete} disabled={acting} className="!border-[var(--gold-bright)]">
                   Mark Done
                 </Button>
                 <Button size="sm" variant="ghost" onClick={handleSkip} disabled={acting} title="Only visible to parents — kids can't skip quests">
@@ -204,14 +213,15 @@ export function QuestAssignmentCard({
             type="number"
             value={manualDuration}
             onChange={(e) => setManualDuration(e.target.value)}
-            placeholder={quest.estimatedMinutes ? `${quest.estimatedMinutes}` : "min"}
+            placeholder="min"
             min={1}
             max={480}
+            required
             className="w-20"
             aria-label="Duration in minutes"
           />
           <span className="text-xs text-muted-foreground">min</span>
-          <Button size="sm" onClick={handleQuickComplete} disabled={acting}>
+          <Button size="sm" onClick={handleQuickComplete} disabled={acting || !isDurationValid}>
             {acting ? "Saving..." : "Submit"}
           </Button>
           <Button size="sm" variant="ghost" onClick={() => setShowQuickComplete(false)} disabled={acting}>
