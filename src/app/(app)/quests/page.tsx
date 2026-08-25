@@ -12,6 +12,7 @@ import { generateLearningLog, getSavedLog } from "@/lib/actions/chronicles";
 import { getSchoolBreaks } from "@/lib/actions/school-breaks";
 import { formatDate, getWeekStartDate } from "@/lib/utils/dates";
 import { weekdayOfDate, currentTimeOfDay } from "@/lib/utils/schedule-days";
+import { getStructuredCardLock } from "@/lib/utils/quest-ordering";
 import { ChildSelector } from "@/components/child-selector";
 import { GameFrame } from "@/components/game-frame";
 import { GameIcon } from "@/components/game-icon";
@@ -95,7 +96,11 @@ export default async function QuestsPage({
       <QuestViewTabs active={activeView} />
 
       {activeView === "today" ? (
-        <TodayView childId={activeChild.id} isChildView={isChildView} />
+        <TodayView
+          childId={activeChild.id}
+          isChildView={isChildView}
+          allowChildSkip={isChildView && activeChild.skipQuestsEnabled}
+        />
       ) : (
         <AdventureView
           childId={activeChild.id}
@@ -109,7 +114,16 @@ export default async function QuestsPage({
   );
 }
 
-async function TodayView({ childId, isChildView }: { childId: string; isChildView: boolean }) {
+async function TodayView({
+  childId,
+  isChildView,
+  allowChildSkip,
+}: {
+  childId: string;
+  isChildView: boolean;
+  /** Parent-granted: this hero may skip their own quests (a grown-up is alerted either way). */
+  allowChildSkip: boolean;
+}) {
   const today = formatDate(new Date());
   await generateAssignmentsFromSchedules(childId, today, today);
 
@@ -132,6 +146,19 @@ async function TodayView({ childId, isChildView }: { childId: string; isChildVie
 
   const todayAssignmentIds = new Set(todayAssignments.map((a) => a.assignment.id));
 
+  // On a structured day a hero works the schedule in order, so every assigned
+  // quest but the next one is shown locked rather than with its own Start /
+  // Quick Complete buttons — those bypassed the "Start a Quest" queue entirely
+  // and only failed once the server refused the completion. Parents still act
+  // on any quest in any order.
+  const structuredNext = getStructuredCardLock({
+    enabled: isChildView && schoolingMode === "structured",
+    quests,
+    todayAssignments,
+    latestStatusByQuestId,
+    todaysBlocks,
+  });
+
   return (
     <>
       <TimerCleanup pendingAssignmentIds={pendingIds} />
@@ -145,11 +172,19 @@ async function TodayView({ childId, isChildView }: { childId: string; isChildVie
                 subjects={subjects}
                 assignments={todayAssignments}
                 isChildView={isChildView}
+                structuredNext={structuredNext}
+                allowChildSkip={allowChildSkip}
               />
             ) : (
               <div className="space-y-2">
                 {todayAssignments.map((a) => (
-                  <QuestAssignmentCard key={a.assignment.id} data={a} isChildView={isChildView} />
+                  <QuestAssignmentCard
+                    key={a.assignment.id}
+                    data={a}
+                    isChildView={isChildView}
+                    structuredNext={structuredNext}
+                    allowChildSkip={allowChildSkip}
+                  />
                 ))}
               </div>
             )}

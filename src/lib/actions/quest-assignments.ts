@@ -13,6 +13,7 @@ import { sanitizeText } from "@/lib/utils/sanitize";
 import { weekdayOfDate } from "@/lib/utils/schedule-days";
 import { getNextStructuredQuest } from "@/lib/utils/quest-ordering";
 import { pruneStaleAssignmentsInRange } from "@/lib/services/quest-assignment-sync";
+import { recordQuestSkippedAlert } from "@/lib/services/parent-alerts";
 
 /**
  * A removed quest keeps its finished assignments — they're the hero's history
@@ -100,16 +101,19 @@ export async function getLatestAssignmentStatusByQuest(childId: string) {
  * createAssignment (the "Start a Quest" flow) and completeAssignment —
  * recurring quests already have a `pending` questAssignment row materialized
  * by generateAssignmentsFromSchedules before a hero ever opens the page, so
- * the "Assigned Quests" list's own Mark Done button can complete one
+ * the "Assigned Quests" list's own Quick Complete button can complete one
  * directly without ever going through createAssignment. Gating
  * createAssignment alone would leave that path wide open for the hero.
+ *
+ * The queue is deliberately clock-independent (see getStructuredQuestQueue),
+ * so this agrees with what the page showed as unlocked no matter how much
+ * time passed between render and submit.
  */
 async function assertQuestUnlockedInStructuredMode(
   childId: string,
   date: string,
   questId: string,
-  isChild: boolean,
-  clientNowTime?: string
+  isChild: boolean
 ) {
   if (!isChild) return;
   const effectiveMode = await getSchoolingModeForDate(childId, date);
@@ -135,7 +139,6 @@ async function assertQuestUnlockedInStructuredMode(
     todayAssignments,
     latestStatusByQuestId,
     todaysBlocks,
-    nowTime: clientNowTime,
   });
   if (!next) {
     throw new Error("All of today's quests are already complete.");
@@ -149,12 +152,6 @@ export async function createAssignment(data: {
   questId: string;
   childId: string;
   date: string;
-  // Browser-local "HH:mm" — only consulted (and only trusted the same way
-  // `date` already is) when the hero's effective mode for this date is
-  // structured, to label ordering. The lock itself is driven by completion
-  // status/schedule order, not by this value, so a spoofed time can't skip
-  // the queue.
-  clientNowTime?: string;
 }) {
   // Lazily materializing a quest into a today-assignment is the heart of the
   // "Start a Quest" flow that heroes use themselves, so a child must be able to
@@ -167,8 +164,7 @@ export async function createAssignment(data: {
     data.childId,
     data.date,
     data.questId,
-    isChildActor(access),
-    data.clientNowTime
+    isChildActor(access)
   );
 
   const id = nanoid();
@@ -436,17 +432,112 @@ export async function completeAssignment(
   return { activityId };
 }
 
-export async function skipAssignment(assignmentId: string, notes?: string) {
+/**
+ * Scribe's Notes written (or rewritten) after a quest is already done. Heroes
+ * finish first and reflect later, so Today's Quests keeps an Add/Edit Notes
+ * affordance on completed cards rather than making the completion form the
+ * only chance to say what happened.
+ *
+ * The note is mirrored onto the linked activity log so Recent Adventures and
+ * the learning log tell the same story — completeAssignment writes both, and
+ * so must every later edit.
+ */
+export async function updateAssignmentNotes(assignmentId: string, notes: string) {
   await requireAssignmentAccess(assignmentId, { write: true });
+
+  const rows = await db
+    .select({
+      status: schema.questAssignment.status,
+      activityLogId: schema.questAssignment.activityLogId,
+      requireNotes: schema.quest.requireNotes,
+    })
+    .from(schema.questAssignment)
+    .innerJoin(schema.quest, eq(schema.questAssignment.questId, schema.quest.id))
+    .where(eq(schema.questAssignment.id, assignmentId))
+    .limit(1);
+
+  const row = rows[0];
+  if (!row) throw new Error("Assignment not found");
+  if (row.status !== "completed") {
+    throw new Error("Only a completed quest can be annotated.");
+  }
+
+  const note = notes ? sanitizeText(notes) : "";
+  // Editing must not be a way to strip notes a quest insists on having.
+  if (!note && row.requireNotes) {
+    throw new Error("Scribe's Notes are required for this quest");
+  }
+
+  const now = new Date();
+  await db
+    .update(schema.questAssignment)
+    .set({ notes: note || null, updatedAt: now })
+    .where(eq(schema.questAssignment.id, assignmentId));
+
+  if (row.activityLogId) {
+    await db
+      .update(schema.activityLog)
+      .set({ description: note || null, updatedAt: now })
+      .where(eq(schema.activityLog.id, row.activityLogId));
+  }
+}
+
+/**
+ * Skipping a quest is a grown-up decision by default. A parent can hand it to
+ * a hero one child at a time (child.skipQuestsEnabled) — and whenever a hero
+ * uses it, the grown-ups get an in-app alert, so "allowed" never quietly means
+ * "unnoticed".
+ */
+export async function skipAssignment(assignmentId: string, notes?: string) {
+  const { access } = await requireAssignmentAccess(assignmentId, { write: true });
+  const isChild = isChildActor(access);
+  if (isChild) {
+    const rows = await db
+      .select({
+        enabled: schema.child.skipQuestsEnabled,
+        childId: schema.questAssignment.childId,
+        date: schema.questAssignment.date,
+        questId: schema.questAssignment.questId,
+      })
+      .from(schema.questAssignment)
+      .innerJoin(schema.child, eq(schema.questAssignment.childId, schema.child.id))
+      .where(eq(schema.questAssignment.id, assignmentId))
+      .limit(1);
+    const row = rows[0];
+    if (!row?.enabled) {
+      throw new Error("Ask a parent — only they can skip a quest for you.");
+    }
+    // Skipping must not be a way around the queue either: a hero may only skip
+    // the quest that's currently theirs to do.
+    await assertQuestUnlockedInStructuredMode(row.childId, row.date, row.questId, true);
+  }
+
+  const note = notes ? sanitizeText(notes) : "";
   const now = new Date();
   await db
     .update(schema.questAssignment)
     .set({
       status: "skipped",
-      notes: notes ?? null,
+      notes: note || null,
       updatedAt: now,
     })
     .where(eq(schema.questAssignment.id, assignmentId));
+
+  if (isChild) {
+    await recordQuestSkippedAlert(assignmentId, note);
+  }
+}
+
+/** Parent-only: hand a hero the ability to skip their own quests, or take it back. */
+export async function setSkipQuestsEnabled(childId: string, enabled: boolean) {
+  const { access, familyId } = await requireChildAccess(childId, { write: true });
+  if (isChildActor(access)) {
+    throw new Error("Only a parent can change who may skip quests.");
+  }
+  await db
+    .update(schema.child)
+    .set({ skipQuestsEnabled: enabled, updatedAt: new Date() })
+    .where(and(eq(schema.child.id, childId), eq(schema.child.familyId, familyId)));
 }
 
 export async function deleteAssignment(assignmentId: string) {

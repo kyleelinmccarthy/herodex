@@ -10,7 +10,10 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/lib/actions/quest-assignments", () => ({
   completeAssignment: vi.fn().mockResolvedValue({ activityId: "a1" }),
   skipAssignment: vi.fn().mockResolvedValue(undefined),
+  updateAssignmentNotes: vi.fn().mockResolvedValue(undefined),
 }));
+
+import { skipAssignment, updateAssignmentNotes } from "@/lib/actions/quest-assignments";
 
 vi.mock("@/hooks/use-quest-timer", () => ({
   useQuestTimer: () => mockTimerHook,
@@ -30,6 +33,8 @@ let mockTimerHook: {
 };
 
 beforeEach(() => {
+  vi.mocked(skipAssignment).mockClear();
+  vi.mocked(updateAssignmentNotes).mockClear();
   mockTimerHook = {
     activeTimer: null,
     elapsedSeconds: 0,
@@ -101,6 +106,90 @@ describe("QuestAssignmentCard", () => {
     expect(screen.getByText("Submit")).toBeInTheDocument();
   });
 
+  it("offers a Scribe's Notes field on quick complete even when notes are optional", async () => {
+    const user = userEvent.setup();
+    render(<QuestAssignmentCard data={baseData} isChildView={true} />);
+    await user.click(screen.getByText("Quick Complete"));
+    const notes = screen.getByLabelText("Scribe's Notes");
+    expect(notes).toBeInTheDocument();
+    expect(notes).toHaveAttribute("placeholder", expect.stringContaining("(optional)"));
+    // Optional notes must not block submitting.
+    expect(screen.getByText("Submit")).not.toBeDisabled();
+  });
+
+  it("requires Scribe's Notes before submitting when the quest demands them", async () => {
+    const user = userEvent.setup();
+    const data = { ...baseData, quest: { ...baseData.quest, requireNotes: true } };
+    render(<QuestAssignmentCard data={data} isChildView={true} />);
+    await user.click(screen.getByText("Quick Complete"));
+    expect(screen.getByLabelText("Scribe's Notes")).toHaveAttribute(
+      "placeholder",
+      expect.stringContaining("(required)"),
+    );
+    expect(screen.getByText("Submit")).toBeDisabled();
+    await user.type(screen.getByLabelText("Scribe's Notes"), "Read pages 50-75");
+    expect(screen.getByText("Submit")).not.toBeDisabled();
+  });
+
+  it("locks a hero out of quests that are not next in structured mode", () => {
+    render(
+      <QuestAssignmentCard
+        data={baseData}
+        isChildView={true}
+        structuredNext={{ id: "other-quest", title: "Math Drills" }}
+      />
+    );
+    expect(screen.getByText('Complete "Math Drills" first')).toBeInTheDocument();
+    expect(screen.queryByText("Start")).not.toBeInTheDocument();
+    expect(screen.queryByText("Quick Complete")).not.toBeInTheDocument();
+  });
+
+  it("leaves the quest that is next in structured mode fully actionable", () => {
+    render(
+      <QuestAssignmentCard
+        data={baseData}
+        isChildView={true}
+        structuredNext={{ id: "q1", title: "Read Chapter 5" }}
+      />
+    );
+    expect(screen.getByText("Start")).toBeInTheDocument();
+    expect(screen.getByText("Quick Complete")).toBeInTheDocument();
+  });
+
+  it("hides Skip from a hero whose parent has not allowed it", () => {
+    render(<QuestAssignmentCard data={baseData} isChildView={true} />);
+    expect(screen.queryByText("Skip")).not.toBeInTheDocument();
+  });
+
+  it("lets a hero skip with a reason once a parent allows it", async () => {
+    const user = userEvent.setup();
+    render(<QuestAssignmentCard data={baseData} isChildView={true} allowChildSkip={true} />);
+    await user.click(screen.getByText("Skip"));
+    await user.type(screen.getByLabelText("Reason for skipping"), "Too hard today");
+    expect(screen.getByText("Your grown-up will be told.")).toBeInTheDocument();
+    await user.click(screen.getByText("Skip Quest"));
+    expect(skipAssignment).toHaveBeenCalledWith("qa1", "Too hard today");
+  });
+
+  it("still hides Skip from a hero on a quest that is not their turn", () => {
+    render(
+      <QuestAssignmentCard
+        data={baseData}
+        isChildView={true}
+        allowChildSkip={true}
+        structuredNext={{ id: "other-quest", title: "Math Drills" }}
+      />
+    );
+    expect(screen.queryByText("Skip")).not.toBeInTheDocument();
+  });
+
+  it("skips straight away for a parent, with no reason prompt", async () => {
+    const user = userEvent.setup();
+    render(<QuestAssignmentCard data={baseData} isChildView={false} />);
+    await user.click(screen.getByText("Skip"));
+    expect(skipAssignment).toHaveBeenCalledWith("qa1", undefined);
+  });
+
   it("shows completed state", () => {
     const data = {
       ...baseData,
@@ -109,6 +198,70 @@ describe("QuestAssignmentCard", () => {
     render(<QuestAssignmentCard data={data} isChildView={false} />);
     expect(screen.getByText("Completed")).toBeInTheDocument();
     expect(screen.queryByText("Mark Done")).not.toBeInTheDocument();
+  });
+
+  it("offers Add Notes on a completed quest that has none yet", () => {
+    const data = {
+      ...baseData,
+      assignment: { ...baseData.assignment, status: "completed" },
+    };
+    render(<QuestAssignmentCard data={data} isChildView={true} />);
+    expect(screen.getByText("Add Notes")).toBeInTheDocument();
+  });
+
+  it("shows a completed quest's notes and offers to edit them", () => {
+    const data = {
+      ...baseData,
+      assignment: { ...baseData.assignment, status: "completed", notes: "Read pages 50-75" },
+    };
+    render(<QuestAssignmentCard data={data} isChildView={true} />);
+    expect(screen.getByText("Read pages 50-75")).toBeInTheDocument();
+    expect(screen.getByText("Edit Notes")).toBeInTheDocument();
+    expect(screen.queryByText("Add Notes")).not.toBeInTheDocument();
+  });
+
+  it("lets a hero write notes onto an already-completed quest", async () => {
+    const user = userEvent.setup();
+    const data = {
+      ...baseData,
+      assignment: { ...baseData.assignment, status: "completed" },
+    };
+    render(<QuestAssignmentCard data={data} isChildView={true} />);
+    await user.click(screen.getByText("Add Notes"));
+    await user.type(screen.getByLabelText("Scribe's Notes"), "Finished the whole chapter");
+    await user.click(screen.getByText("Save Notes"));
+    expect(updateAssignmentNotes).toHaveBeenCalledWith("qa1", "Finished the whole chapter");
+  });
+
+  it("seeds the notes editor with the notes already on the quest", async () => {
+    const user = userEvent.setup();
+    const data = {
+      ...baseData,
+      assignment: { ...baseData.assignment, status: "completed", notes: "Read pages 50-75" },
+    };
+    render(<QuestAssignmentCard data={data} isChildView={true} />);
+    await user.click(screen.getByText("Edit Notes"));
+    expect(screen.getByLabelText("Scribe's Notes")).toHaveValue("Read pages 50-75");
+  });
+
+  it("will not let a required-notes quest be left blank by an edit", async () => {
+    const user = userEvent.setup();
+    const data = {
+      ...baseData,
+      assignment: { ...baseData.assignment, status: "completed", notes: "Read pages 50-75" },
+      quest: { ...baseData.quest, requireNotes: true },
+    };
+    render(<QuestAssignmentCard data={data} isChildView={true} />);
+    await user.click(screen.getByText("Edit Notes"));
+    await user.clear(screen.getByLabelText("Scribe's Notes"));
+    expect(screen.getByText("Save Notes")).toBeDisabled();
+    expect(updateAssignmentNotes).not.toHaveBeenCalled();
+  });
+
+  it("keeps notes editing off a pending quest — completing it is how notes get written", () => {
+    render(<QuestAssignmentCard data={baseData} isChildView={true} />);
+    expect(screen.queryByText("Add Notes")).not.toBeInTheDocument();
+    expect(screen.queryByText("Edit Notes")).not.toBeInTheDocument();
   });
 
   it("shows skipped state with notes", () => {

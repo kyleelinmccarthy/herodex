@@ -6,6 +6,7 @@ import {
   generateAssignmentsFromSchedules,
 } from "@/lib/actions/quest-assignments";
 import { getScheduleBlocks } from "@/lib/actions/student-schedule";
+import { getParentAlerts } from "@/lib/actions/parent-alerts";
 import { formatDate } from "@/lib/utils/dates";
 import { formatTimeOfDay, weekdayOfDate } from "@/lib/utils/schedule-days";
 import {
@@ -13,6 +14,7 @@ import {
   sortUpcomingBySchedule,
 } from "@/lib/utils/quest-ordering";
 import { GameFrame } from "@/components/game-frame";
+import { ParentAlertsPanel } from "@/components/parent-alerts";
 import { GameIcon, type GameIconName } from "@/components/game-icon";
 import { Avatar } from "@/components/avatar";
 import type { AvatarConfig } from "@/lib/utils/avatar-catalog";
@@ -29,6 +31,8 @@ export async function ParentDashboard({ allChildren }: { allChildren: ChildRow[]
   await Promise.all(
     allChildren.map((child) => generateAssignmentsFromSchedules(child.id, today, weekOut))
   );
+
+  const alerts = await getParentAlerts();
 
   const perChild = await Promise.all(
     allChildren.map(async (child) => {
@@ -69,6 +73,8 @@ export async function ParentDashboard({ allChildren }: { allChildren: ChildRow[]
         <h1 className="page-title text-4xl">The Tavern</h1>
         <p className="mt-1 text-muted-foreground">Your family&apos;s adventure hub</p>
       </div>
+
+      <ParentAlertsPanel initialAlerts={alerts} />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <QuicklinkCard href="/scrolls" icon="mage" label="Create Assignment" />

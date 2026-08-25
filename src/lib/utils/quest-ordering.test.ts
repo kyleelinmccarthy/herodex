@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { earliestStartTimeByDayAndSubject, sortUpcomingBySchedule } from "./quest-ordering";
+import {
+  earliestStartTimeByDayAndSubject,
+  getStructuredCardLock,
+  getStructuredQuestQueue,
+  sortUpcomingBySchedule,
+} from "./quest-ordering";
 
 describe("earliestStartTimeByDayAndSubject", () => {
   it("keys by weekday and subject, keeping the earliest of repeated blocks", () => {
@@ -63,5 +68,92 @@ describe("sortUpcomingBySchedule", () => {
         item("recess", "2026-08-25", 1),
       ])
     ).toEqual(["2026-08-25 chores", "2026-08-25 recess", "2026-08-25 bonus"]);
+  });
+});
+
+describe("getStructuredQuestQueue", () => {
+  const quest = (id: string, subjectId: string, sortOrder = 0) => ({
+    id,
+    title: id,
+    subjectId,
+    hasSchedule: true,
+    sortOrder,
+  });
+  const blocks = [
+    { subjectId: "math", startTime: "08:00", endTime: "09:00" },
+    { subjectId: "reading", startTime: "10:00", endTime: "11:00" },
+  ];
+  const assigned = (questId: string, status = "pending") => ({
+    assignment: { id: `a-${questId}`, status },
+    quest: { id: questId },
+  });
+
+  const queue = (todayAssignments: ReturnType<typeof assigned>[]) =>
+    getStructuredQuestQueue({
+      quests: [quest("reading", "reading"), quest("math", "math"), quest("bonus", "art", 5)],
+      todayAssignments,
+      latestStatusByQuestId: {},
+      todaysBlocks: blocks,
+    }).map((q) => q.id);
+
+  it("orders by scheduled start time, with unscheduled quests last", () => {
+    expect(queue([assigned("math"), assigned("reading"), assigned("bonus")])).toEqual([
+      "math",
+      "reading",
+      "bonus",
+    ]);
+  });
+
+  it("keeps a missed earlier quest at the head of the queue, whatever time it is", () => {
+    // The 08:00 math block is long past, but it is still the next thing to
+    // finish — the hero catches up before moving on to the 10:00 reading.
+    expect(queue([assigned("math"), assigned("reading")])[0]).toBe("math");
+  });
+
+  it("moves on once the earlier quest is finished", () => {
+    expect(queue([assigned("math", "completed"), assigned("reading")])).toEqual(["reading"]);
+    expect(queue([assigned("math", "skipped"), assigned("reading")])).toEqual(["reading"]);
+  });
+});
+
+describe("getStructuredCardLock", () => {
+  const params = {
+    quests: [
+      { id: "math", title: "Math Drills", subjectId: "math", hasSchedule: true, sortOrder: 0 },
+      { id: "reading", title: "Reading", subjectId: "reading", hasSchedule: true, sortOrder: 1 },
+    ],
+    todayAssignments: [
+      { assignment: { id: "a1", status: "pending" }, quest: { id: "math" } },
+      { assignment: { id: "a2", status: "pending" }, quest: { id: "reading" } },
+    ],
+    latestStatusByQuestId: {},
+    todaysBlocks: [
+      { subjectId: "math", startTime: "08:00", endTime: "09:00" },
+      { subjectId: "reading", startTime: "10:00", endTime: "11:00" },
+    ],
+  };
+
+  it("names the only quest a hero may act on", () => {
+    expect(getStructuredCardLock({ ...params, enabled: true })).toEqual({
+      id: "math",
+      title: "Math Drills",
+    });
+  });
+
+  it("does not lock anything when disabled (a parent, or an unstructured day)", () => {
+    expect(getStructuredCardLock({ ...params, enabled: false })).toBeNull();
+  });
+
+  it("does not lock anything once every quest is done", () => {
+    expect(
+      getStructuredCardLock({
+        ...params,
+        todayAssignments: params.todayAssignments.map((a) => ({
+          ...a,
+          assignment: { ...a.assignment, status: "completed" },
+        })),
+        enabled: true,
+      })
+    ).toBeNull();
   });
 });

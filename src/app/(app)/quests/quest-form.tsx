@@ -12,7 +12,12 @@ import { createAssignment, completeAssignment, getQuestFormData } from "@/lib/ac
 import { useQuestTimer } from "@/hooks/use-quest-timer";
 import { useBrowserToday } from "@/hooks/use-browser-today";
 import { formatTimeOfDay } from "@/lib/utils/schedule-days";
-import { earliestBlockBySubject, blockStatus, getOrderedAvailableQuests } from "@/lib/utils/quest-ordering";
+import {
+  earliestBlockBySubject,
+  blockStatus,
+  getOrderedAvailableQuests,
+  getStructuredQuestQueue,
+} from "@/lib/utils/quest-ordering";
 import type { SchoolingMode } from "@/lib/utils/schooling-mode";
 
 type Subject = {
@@ -107,16 +112,28 @@ export function QuestForm({
 
   const blockBySubjectId = earliestBlockBySubject(effectiveTodaysBlocks);
 
-  // Available quests today, already filtered + sorted by schedule priority
-  // (current > upcoming > past > unscheduled). In structured mode, index 0
-  // is the only startable quest; in unstructured mode any of them can be
-  // picked from the dropdown.
+  // Available quests today, sorted by schedule priority (current > upcoming >
+  // past > unscheduled) — the order the unstructured dropdown offers them in,
+  // so what's happening right now is preselected.
   const sortedQuests = getOrderedAvailableQuests({
     quests,
     todayAssignments: effectiveTodayAssignments,
     latestStatusByQuestId: effectiveLatestStatusByQuestId,
     todaysBlocks: effectiveTodaysBlocks,
     nowTime: browserNowTime || nowTime,
+  });
+
+  // Structured mode instead walks the day in plain schedule order and unlocks
+  // only index 0. It has to be this clock-independent queue and not
+  // sortedQuests: the server enforces the same lock, and a "what's current
+  // now" ordering drifts as the day passes, so the two could disagree and
+  // reject the quest this form had just offered. It also means a quest missed
+  // this morning stays next, to be finished before moving on.
+  const structuredQueue = getStructuredQuestQueue({
+    quests,
+    todayAssignments: effectiveTodayAssignments,
+    latestStatusByQuestId: effectiveLatestStatusByQuestId,
+    todaysBlocks: effectiveTodaysBlocks,
   });
 
   const [selectedQuestId, setSelectedQuestId] = useState(sortedQuests[0]?.id ?? "");
@@ -131,13 +148,13 @@ export function QuestForm({
     }
   }, [selectedQuestId, sortedQuests]);
 
-  const nextQuest = sortedQuests[0] ?? null;
+  const nextQuest = structuredQueue[0] ?? null;
   const activeQuestId = effectiveMode === "structured" ? nextQuest?.id ?? "" : selectedQuestId;
   const activeQuest = sortedQuests.find((q) => q.id === activeQuestId);
   const activeSubject = subjects.find((s) => s.id === activeQuest?.subjectId);
   const activeBlock = activeQuest ? blockBySubjectId.get(activeQuest.subjectId) : undefined;
   const activeStatus = blockStatus(activeBlock, browserNowTime || nowTime);
-  const lockedQuests = effectiveMode === "structured" ? sortedQuests.slice(1) : [];
+  const lockedQuests = effectiveMode === "structured" ? structuredQueue.slice(1) : [];
 
   /** Return the existing assignment ID or create a new one */
   async function getOrCreateAssignment(questId: string): Promise<string> {
@@ -147,7 +164,6 @@ export function QuestForm({
       questId,
       childId,
       date: browserToday,
-      clientNowTime: browserNowTime,
     });
     return id;
   }

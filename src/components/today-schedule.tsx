@@ -39,11 +39,17 @@ export function TodaySchedule({
   subjects,
   assignments,
   isChildView,
+  structuredNext = null,
+  allowChildSkip = false,
 }: {
   blocks: ScheduleBlock[];
   subjects: Subject[];
   assignments: AssignmentWithDetails[];
   isChildView: boolean;
+  /** Structured mode's single unlocked quest, forwarded to each card. */
+  structuredNext?: { id: string; title: string } | null;
+  /** Whether this hero's parent has allowed them to skip their own quests. */
+  allowChildSkip?: boolean;
 }) {
   const subjectsById = new Map(subjects.map((s) => [s.id, s]));
 
@@ -82,7 +88,13 @@ export function TodaySchedule({
             {blockAssignments.length > 0 ? (
               <div className="min-w-0 space-y-2 pl-4">
                 {blockAssignments.map((a) => (
-                  <QuestAssignmentCard key={a.assignment.id} data={a} isChildView={isChildView} />
+                  <QuestAssignmentCard
+                    key={a.assignment.id}
+                    data={a}
+                    isChildView={isChildView}
+                    structuredNext={structuredNext}
+                    allowChildSkip={allowChildSkip}
+                  />
                 ))}
               </div>
             ) : (
@@ -99,7 +111,13 @@ export function TodaySchedule({
           <p className="text-xs font-semibold text-muted-foreground">Unscheduled</p>
           <div className="space-y-2">
             {unscheduled.map((a) => (
-              <QuestAssignmentCard key={a.assignment.id} data={a} isChildView={isChildView} />
+              <QuestAssignmentCard
+                key={a.assignment.id}
+                data={a}
+                isChildView={isChildView}
+                structuredNext={structuredNext}
+                allowChildSkip={allowChildSkip}
+              />
             ))}
           </div>
         </div>

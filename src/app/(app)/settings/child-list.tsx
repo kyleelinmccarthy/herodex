@@ -48,6 +48,7 @@ import {
 import { createSubject, updateSubject, deleteSubject, reorderSubjects } from "@/lib/actions/subjects";
 import { toggleLeaderboardVisibility } from "@/lib/actions/leaderboard";
 import { setScheduleSelfManage } from "@/lib/actions/student-schedule";
+import { setSkipQuestsEnabled } from "@/lib/actions/quest-assignments";
 import { setSchoolingMode, setSchoolingModeOverride } from "@/lib/actions/schooling-mode";
 import { parseSchoolingModeOverrides, type SchoolingMode } from "@/lib/utils/schooling-mode";
 import { DAYS_OF_WEEK, DAY_LABELS, type DayOfWeek } from "@/lib/utils/schedule-days";
@@ -87,6 +88,7 @@ type Child = {
   currentStreak: number;
   showOnLeaderboard: boolean;
   scheduleSelfManageEnabled?: boolean;
+  skipQuestsEnabled?: boolean;
   schoolingMode?: string;
   schoolingModeOverrides?: string | null;
   email?: string | null;
@@ -419,6 +421,12 @@ function ChildDetail({ child, isChildView = false }: { child: Child; isChildView
           <ScheduleSelfManageToggle
             childId={child.id}
             enabled={child.scheduleSelfManageEnabled ?? false}
+          />
+        )}
+        {!isChildView && (
+          <SkipQuestsToggle
+            childId={child.id}
+            enabled={child.skipQuestsEnabled ?? false}
           />
         )}
         {!isChildView && (
@@ -1147,6 +1155,52 @@ function ScheduleSelfManageToggle({ childId, enabled }: { childId: string; enabl
           disabled={saving}
         >
           {saving ? "Enchanting..." : selfManage ? "Make View-Only" : "Allow Editing"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function SkipQuestsToggle({ childId, enabled }: { childId: string; enabled: boolean }) {
+  const router = useRouter();
+  const [saving, setSaving] = useState(false);
+  const [canSkip, setCanSkip] = useState(enabled);
+
+  async function handleToggle() {
+    setSaving(true);
+    try {
+      await setSkipQuestsEnabled(childId, !canSkip);
+      setCanSkip(!canSkip);
+      router.refresh();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      <h4 className="text-sm font-medium">Skipping Quests</h4>
+      <div className="flex items-center justify-between rounded-lg border border-gold-dim bg-muted/30 px-3 py-2.5">
+        <div>
+          <p className="text-sm">
+            {canSkip
+              ? "This hero can skip their own quests."
+              : "Only a grown-up can skip this hero's quests."}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {canSkip
+              ? "You'll get an alert every time they skip one, with the reason they gave."
+              : "Turn this on and you'll still be alerted whenever they skip a quest."}
+          </p>
+        </div>
+        <Button
+          size="sm"
+          variant={canSkip ? "outline" : "default"}
+          className={canSkip ? "!border-[var(--gold-border)]" : undefined}
+          onClick={handleToggle}
+          disabled={saving}
+        >
+          {saving ? "Enchanting..." : canSkip ? "Require a Grown-Up" : "Allow Skipping"}
         </Button>
       </div>
     </div>

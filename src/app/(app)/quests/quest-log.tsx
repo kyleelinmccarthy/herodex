@@ -33,7 +33,9 @@ export function QuestLog({
   const [deleting, setDeleting] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDuration, setEditDuration] = useState("");
+  const [editNotes, setEditNotes] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
+  const [editError, setEditError] = useState("");
   const subjectMap = new Map(subjects.map((s) => [s.id, s]));
 
   const parsedEditDuration = parseInt(editDuration, 10);
@@ -53,15 +55,23 @@ export function QuestLog({
   function startEdit(activity: Activity) {
     setEditingId(activity.id);
     setEditDuration(activity.durationMinutes ? String(activity.durationMinutes) : "");
+    setEditNotes(activity.description ?? "");
+    setEditError("");
   }
 
   async function handleSaveEdit(id: string) {
     if (!isEditDurationValid) return;
     setSavingEdit(true);
+    setEditError("");
     try {
-      await updateActivity(id, { durationMinutes: parsedEditDuration });
+      await updateActivity(id, {
+        durationMinutes: parsedEditDuration,
+        description: editNotes,
+      });
       setEditingId(null);
       router.refresh();
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : "Could not save changes");
     } finally {
       setSavingEdit(false);
     }
@@ -98,38 +108,55 @@ export function QuestLog({
               return (
                 <div
                   key={activity.id}
-                  className="quest-item flex items-center justify-between rounded-lg border p-3"
+                  className="quest-item flex items-start justify-between gap-2 rounded-lg border p-3"
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="flex min-w-0 flex-1 items-start gap-3">
                     <div
-                      className="quest-dot"
+                      className="quest-dot mt-1 shrink-0"
                       style={{
                         backgroundColor: subject?.color ?? "#6b7280",
                         "--dot-glow": `${subject?.color ?? "#6b7280"}80`,
                       } as React.CSSProperties}
                     />
-                    <div>
-                      <p className="text-sm font-medium">{activity.title}</p>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium wrap-anywhere">{activity.title}</p>
                       {editingId === activity.id ? (
-                        <div className="mt-1 flex items-center gap-2">
+                        <div className="mt-1 space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Input
+                              type="number"
+                              value={editDuration}
+                              onChange={(e) => setEditDuration(e.target.value)}
+                              min={1}
+                              max={480}
+                              required
+                              className="h-7 w-20"
+                              aria-label="Duration in minutes"
+                            />
+                            <span className="text-xs text-muted-foreground">min</span>
+                          </div>
                           <Input
-                            type="number"
-                            value={editDuration}
-                            onChange={(e) => setEditDuration(e.target.value)}
-                            min={1}
-                            max={480}
-                            required
-                            className="h-7 w-20"
-                            aria-label="Duration in minutes"
+                            value={editNotes}
+                            onChange={(e) => setEditNotes(e.target.value)}
+                            placeholder="Scribe's Notes — what did you do?"
+                            className="h-7 text-xs"
+                            aria-label="Scribe's Notes"
                           />
-                          <span className="text-xs text-muted-foreground">min</span>
+                          {editError && <p className="text-xs text-destructive">{editError}</p>}
                         </div>
                       ) : (
-                        <p className="text-xs text-muted-foreground">
-                          {subject?.name ?? "Unknown"}
-                          {activity.durationMinutes ? ` · ${activity.durationMinutes} min` : ""}
-                          {activity.description ? ` · ${activity.description}` : ""}
-                        </p>
+                        <>
+                          <p className="text-xs text-muted-foreground">
+                            {subject?.name ?? "Unknown"}
+                            {activity.durationMinutes ? ` · ${activity.durationMinutes} min` : ""}
+                          </p>
+                          {activity.description && (
+                            <p className="mt-0.5 flex items-start gap-1 text-xs italic wrap-anywhere text-muted-foreground">
+                              <GameIcon name="scroll" className="mt-0.5 size-3 shrink-0 text-[var(--gold-bright)]" />
+                              <span>{activity.description}</span>
+                            </p>
+                          )}
+                        </>
                       )}
                     </div>
                   </div>
@@ -160,7 +187,7 @@ export function QuestLog({
                           onClick={() => startEdit(activity)}
                           className="text-muted-foreground"
                         >
-                          Edit
+                          {activity.description ? "Edit" : "Add Notes"}
                         </Button>
                         <Button
                           variant="ghost"

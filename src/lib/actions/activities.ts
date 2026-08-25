@@ -123,19 +123,73 @@ export async function createActivity(data: {
   return { id, title };
 }
 
+/**
+ * Edit a chronicled quest after the fact — its duration, its Scribe's Notes,
+ * or both. A hero can annotate their own history here (requireChildAccess
+ * admits a child acting on their own profile), which is the point: notes are
+ * often easier to write once the quest is actually done.
+ *
+ * For a quest-backed activity the notes live in two places — the activity's
+ * `description` and the assignment's `notes`, which is what the learning log
+ * reads (see completeAssignment). An edit has to land on both or the two
+ * drift apart.
+ */
 export async function updateActivity(
   activityId: string,
-  data: { durationMinutes: number }
+  data: { durationMinutes?: number; description?: string }
 ) {
   await requireActivityAccess(activityId, { write: true });
-  const durationMinutes = Math.round(data.durationMinutes);
-  if (!Number.isFinite(durationMinutes) || durationMinutes < 1) {
-    throw new Error("Duration must be at least 1 minute");
+
+  const updates: { durationMinutes?: number; description?: string | null } = {};
+
+  if (data.durationMinutes !== undefined) {
+    const durationMinutes = Math.round(data.durationMinutes);
+    if (!Number.isFinite(durationMinutes) || durationMinutes < 1) {
+      throw new Error("Duration must be at least 1 minute");
+    }
+    updates.durationMinutes = durationMinutes;
   }
+
+  const notes =
+    data.description === undefined ? undefined : sanitizeText(data.description) || null;
+  if (notes !== undefined) updates.description = notes;
+
+  if (Object.keys(updates).length === 0) return;
+
+  const linked =
+    notes === undefined
+      ? []
+      : await db
+          .select({
+            assignmentId: schema.questAssignment.id,
+            requireNotes: schema.quest.requireNotes,
+          })
+          .from(schema.activityLog)
+          .innerJoin(
+            schema.questAssignment,
+            eq(schema.questAssignment.id, schema.activityLog.questAssignmentId),
+          )
+          .innerJoin(schema.quest, eq(schema.quest.id, schema.questAssignment.questId))
+          .where(eq(schema.activityLog.id, activityId))
+          .limit(1);
+
+  // Editing must not be a way to strip notes a quest insists on having.
+  if (notes === null && linked[0]?.requireNotes) {
+    throw new Error("Scribe's Notes are required for this quest");
+  }
+
+  const now = new Date();
   await db
     .update(schema.activityLog)
-    .set({ durationMinutes, updatedAt: new Date() })
+    .set({ ...updates, updatedAt: now })
     .where(eq(schema.activityLog.id, activityId));
+
+  if (linked[0]) {
+    await db
+      .update(schema.questAssignment)
+      .set({ notes, updatedAt: now })
+      .where(eq(schema.questAssignment.id, linked[0].assignmentId));
+  }
 }
 
 export async function deleteActivity(activityId: string) {

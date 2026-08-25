@@ -12,6 +12,7 @@ import { getBadges, getChildBadges, checkAndAwardBadges } from "@/lib/actions/ba
 import { getChildAvatarUnlocks } from "@/lib/actions/avatar";
 import { formatDate } from "@/lib/utils/dates";
 import { weekdayOfDate, currentTimeOfDay } from "@/lib/utils/schedule-days";
+import { getStructuredCardLock } from "@/lib/utils/quest-ordering";
 import { ChildSelector } from "@/components/child-selector";
 import { GameFrame } from "@/components/game-frame";
 import { Avatar } from "@/components/avatar";
@@ -103,6 +104,23 @@ export default async function TavernPage({
     .filter((a) => a.assignment.status === "pending")
     .map((a) => a.assignment.id);
 
+  // On a structured day a hero works the schedule in order, so every assigned
+  // quest but the next one is shown locked rather than with its own Start /
+  // Quick Complete buttons — those bypassed the "Start a Quest" queue entirely
+  // and only failed once the server refused the completion. Parents still act
+  // on any quest in any order.
+  // Parent-granted permission for this hero to skip their own quests; the
+  // grown-ups get an alert whenever they use it.
+  const allowChildSkip = isChildView && activeChild.skipQuestsEnabled;
+
+  const structuredNext = getStructuredCardLock({
+    enabled: isChildView && schoolingMode === "structured",
+    quests,
+    todayAssignments,
+    latestStatusByQuestId,
+    todaysBlocks,
+  });
+
   const level = Math.floor(activeChild.currentXp / 100) + 1;
   const xpInLevel = activeChild.currentXp % 100;
   const earnedIds = new Set(earnedBadges.map((b) => b.badge.id));
@@ -159,11 +177,19 @@ export default async function TavernPage({
                 subjects={subjects}
                 assignments={todayAssignments}
                 isChildView={isChildView}
+                structuredNext={structuredNext}
+                allowChildSkip={allowChildSkip}
               />
             ) : (
               <div className="space-y-2">
                 {todayAssignments.map((a) => (
-                  <QuestAssignmentCard key={a.assignment.id} data={a} isChildView={isChildView} />
+                  <QuestAssignmentCard
+                    key={a.assignment.id}
+                    data={a}
+                    isChildView={isChildView}
+                    structuredNext={structuredNext}
+                    allowChildSkip={allowChildSkip}
+                  />
                 ))}
               </div>
             )}

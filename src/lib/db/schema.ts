@@ -194,6 +194,10 @@ export const child = sqliteTable(
     // ── Schedule ─────────────────────────────────────────────────
     // Parent-only toggle: whether this hero may edit their own schedule.
     scheduleSelfManageEnabled: integer("schedule_self_manage_enabled", { mode: "boolean" }).notNull().default(false),
+    // Parent-only toggle: whether this hero may skip their own quests. Off by
+    // default — skipping stays a grown-up decision until a parent hands it
+    // over. Every skip a hero makes raises a parentAlert either way.
+    skipQuestsEnabled: integer("skip_quests_enabled", { mode: "boolean" }).notNull().default(false),
     // JSON array of weekday codes ("mon".."sun") that are school days; null = default Mon-Fri.
     schoolDays: text("school_days"),
     // JSON array of weekday codes that are school days but optional: quests can
@@ -657,5 +661,66 @@ export const childAvatarUnlock = sqliteTable(
   (table) => [
     uniqueIndex("child_avatar_unlock_unique_idx").on(table.childId, table.category, table.itemId),
     index("child_avatar_unlock_child_idx").on(table.childId),
+  ]
+);
+
+// ── Parent alerts ───────────────────────────────────────────
+
+/**
+ * In-app notices for the grown-ups: something a hero did that a parent should
+ * know about. One row per event, raised for the family as a whole — who has
+ * cleared it is tracked separately, in parentAlertDismissal, so each guardian
+ * dismisses their own copy without hiding it from the others.
+ *
+ * The quest details are copied in rather than joined back out: an alert has to
+ * still read correctly after the quest is renamed, or after it's removed and
+ * the assignment row goes with it.
+ */
+export const parentAlert = sqliteTable(
+  "parent_alert",
+  {
+    id: text("id").primaryKey(),
+    familyId: text("family_id")
+      .notNull()
+      .references(() => family.id, { onDelete: "cascade" }),
+    childId: text("child_id")
+      .notNull()
+      .references(() => child.id, { onDelete: "cascade" }),
+    type: text("type", { enum: ["quest_skipped"] }).notNull(),
+    questAssignmentId: text("quest_assignment_id").references(() => questAssignment.id, {
+      onDelete: "set null",
+    }),
+    childName: text("child_name").notNull(),
+    questTitle: text("quest_title").notNull(),
+    subjectName: text("subject_name"),
+    date: text("date").notNull(), // ISO YYYY-MM-DD of the assignment
+    note: text("note"), // the hero's own reason, when they gave one
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+  },
+  (table) => [index("parent_alert_family_idx").on(table.familyId, table.createdAt)]
+);
+
+/**
+ * One row per (alert, guardian) once that guardian has cleared it. Absence is
+ * what makes an alert "unread", so a guardian added to the family later still
+ * sees anything still outstanding.
+ *
+ * userId is deliberately not a foreign key: demo mode signs in as a synthetic
+ * user that has no row in `user`, and a dismissal is worth keeping even if the
+ * membership behind it is rebuilt.
+ */
+export const parentAlertDismissal = sqliteTable(
+  "parent_alert_dismissal",
+  {
+    id: text("id").primaryKey(),
+    alertId: text("alert_id")
+      .notNull()
+      .references(() => parentAlert.id, { onDelete: "cascade" }),
+    userId: text("user_id").notNull(),
+    dismissedAt: integer("dismissed_at", { mode: "timestamp" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("parent_alert_dismissal_unique_idx").on(table.alertId, table.userId),
+    index("parent_alert_dismissal_user_idx").on(table.userId),
   ]
 );

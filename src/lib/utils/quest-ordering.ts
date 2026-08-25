@@ -60,6 +60,9 @@ export function filterAvailableQuests<T extends OrderableQuest>(
   });
 }
 
+/** Sorts after every real "HH:mm", so unscheduled items trail that day's scheduled ones. */
+const UNSCHEDULED_START = "99:99";
+
 const STATUS_RANK: Record<BlockStatus, number> = { current: 0, upcoming: 1, past: 2, unscheduled: 3 };
 
 /**
@@ -100,11 +103,61 @@ export function getOrderedAvailableQuests<T extends OrderableQuest>(params: {
   return sortQuestsBySchedule(available, blockBySubjectId, params.nowTime);
 }
 
+/**
+ * Walks the day in plain schedule order — earliest scheduled start first,
+ * unscheduled quests last — deliberately WITHOUT consulting the clock.
+ * Two reasons it must not rank by "now" the way sortQuestsBySchedule does:
+ * a quest missed this morning stays the next thing to do (heroes catch up on
+ * what they fell behind on before moving ahead), and, since the order never
+ * shifts as the day passes, the browser and the server always agree on which
+ * quest is unlocked. Clock-ranking made them disagree — the server rejected
+ * the very quest the page had just presented as startable.
+ */
+export function sortQuestsByScheduleTime<T extends OrderableQuest>(
+  quests: T[],
+  blockBySubjectId: Map<string, ScheduleBlockLite>
+): T[] {
+  return [...quests].sort((a, b) => {
+    const startA = blockBySubjectId.get(a.subjectId)?.startTime ?? UNSCHEDULED_START;
+    const startB = blockBySubjectId.get(b.subjectId)?.startTime ?? UNSCHEDULED_START;
+    return startA.localeCompare(startB) || a.sortOrder - b.sortOrder;
+  });
+}
+
+export type StructuredQueueParams<T extends OrderableQuest> = {
+  quests: T[];
+  todayAssignments: TodayAssignmentLite[];
+  latestStatusByQuestId: LatestStatusMap;
+  todaysBlocks: ScheduleBlockLite[];
+};
+
+/** Structured mode's queue for today: index 0 is the only quest a hero may start or complete. */
+export function getStructuredQuestQueue<T extends OrderableQuest>(
+  params: StructuredQueueParams<T>
+): T[] {
+  const available = filterAvailableQuests(params.quests, params.todayAssignments, params.latestStatusByQuestId);
+  return sortQuestsByScheduleTime(available, earliestBlockBySubject(params.todaysBlocks));
+}
+
+/**
+ * What Today's Quests needs to lock its cards: the one quest a hero may act
+ * on, or null when the lock doesn't apply (a parent is looking, or the day is
+ * unstructured). Shared so the tavern and the quest log always agree with each
+ * other and with the server's own gate.
+ */
+export function getStructuredCardLock<T extends OrderableQuest & { title: string }>(
+  params: StructuredQueueParams<T> & { enabled: boolean }
+): { id: string; title: string } | null {
+  if (!params.enabled) return null;
+  const next = getNextStructuredQuest(params);
+  return next ? { id: next.id, title: next.title } : null;
+}
+
 /** Structured mode's "next" quest: the first not-yet-completed item in schedule order, or null if none remain. */
 export function getNextStructuredQuest<T extends OrderableQuest>(
-  params: Parameters<typeof getOrderedAvailableQuests<T>>[0]
+  params: StructuredQueueParams<T>
 ): T | null {
-  return getOrderedAvailableQuests(params)[0] ?? null;
+  return getStructuredQuestQueue(params)[0] ?? null;
 }
 
 export type WeeklyBlockLite = { dayOfWeek: string; subjectId: string; startTime: string };
@@ -121,9 +174,6 @@ export function earliestStartTimeByDayAndSubject(blocks: WeeklyBlockLite[]): Map
 }
 
 export type UpcomingItemLite = { date: string; sortOrder: number };
-
-/** Sorts after every real "HH:mm", so unscheduled items trail that day's scheduled ones. */
-const UNSCHEDULED_START = "99:99";
 
 /**
  * Chronological order across the whole family: by date, then by the subject's

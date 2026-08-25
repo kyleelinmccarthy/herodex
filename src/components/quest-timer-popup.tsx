@@ -125,16 +125,14 @@ export function QuestTimerPopup() {
           <div className="text-sm text-muted-foreground">
             {stoppedResult.durationMinutes} minute{stoppedResult.durationMinutes !== 1 ? "s" : ""}
           </div>
-          {requireNotes && (
-            <Input
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Scribe's Notes (required) — what did you do?"
-              required
-              aria-label="Scribe's Notes"
-              className="w-64"
-            />
-          )}
+          <Input
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder={`Scribe's Notes ${requireNotes ? "(required)" : "(optional)"} — what did you do?`}
+            required={requireNotes}
+            aria-label="Scribe's Notes"
+            className="w-64"
+          />
           {error && <div className="text-xs text-destructive">{error}</div>}
           <div className="flex gap-2">
             <Button size="sm" onClick={handleComplete} disabled={acting || (requireNotes && notes.trim() === "")}>
