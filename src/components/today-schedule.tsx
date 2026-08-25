@@ -60,7 +60,7 @@ export function TodaySchedule({
   const shownSubjectIds = new Set<string>();
 
   return (
-    <div className="space-y-3">
+    <div className="min-w-0 space-y-3">
       {blocks.map((block) => {
         const subject = subjectsById.get(block.subjectId);
         const alreadyShown = shownSubjectIds.has(block.subjectId);
@@ -69,7 +69,7 @@ export function TodaySchedule({
 
         return (
           <div key={block.id} className="space-y-2">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
               <span
                 className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
                 style={{ backgroundColor: subject?.color ?? "#6b7280" }}
@@ -77,10 +77,10 @@ export function TodaySchedule({
               <span className="text-xs font-semibold text-muted-foreground">
                 {formatTimeOfDay(block.startTime)}–{formatTimeOfDay(block.endTime)}
               </span>
-              <span className="text-xs text-muted-foreground">{subject?.name ?? "Unknown subject"}</span>
+              <span className="min-w-0 break-words text-xs text-muted-foreground">{subject?.name ?? "Unknown subject"}</span>
             </div>
             {blockAssignments.length > 0 ? (
-              <div className="space-y-2 pl-4">
+              <div className="min-w-0 space-y-2 pl-4">
                 {blockAssignments.map((a) => (
                   <QuestAssignmentCard key={a.assignment.id} data={a} isChildView={isChildView} />
                 ))}

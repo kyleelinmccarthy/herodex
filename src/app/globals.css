@@ -564,11 +564,11 @@ html { scrollbar-color: var(--border) var(--background); }
 .hud-row-main {
   display: grid;
   gap: 1rem;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
 }
 @media (min-width: 1024px) {
   .hud-row-main {
-    grid-template-columns: 1fr 1.3fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr) minmax(0, 1fr);
     gap: 1rem;
   }
 }
@@ -577,12 +577,14 @@ html { scrollbar-color: var(--border) var(--background); }
 .hud-panel-left,
 .hud-panel-right {
   min-height: 0;
+  min-width: 0;
   display: flex;
   flex-direction: column;
 }
 .hud-panel-left > *,
 .hud-panel-right > * {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
 }
@@ -602,9 +604,11 @@ html { scrollbar-color: var(--border) var(--background); }
 .hud-panel-center {
   display: flex;
   align-items: stretch;
+  min-width: 0;
 }
 .hud-panel-center > * {
   flex: 1;
+  min-width: 0;
 }
 .hud-character-frame {
   display: flex;
@@ -659,11 +663,11 @@ html { scrollbar-color: var(--border) var(--background); }
 .hud-row-bottom {
   display: grid;
   gap: 1rem;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
 }
 @media (min-width: 1024px) {
   .hud-row-bottom {
-    grid-template-columns: 1fr 1.5fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr);
   }
 }
 
@@ -709,6 +713,9 @@ html { scrollbar-color: var(--border) var(--background); }
   gap: 0.5rem;
 }
 .hud-loot-item {
+  /* Fixed-width tiles: break labels on spaces only, never mid-word, despite
+     the anywhere-wrapping safety net on .game-frame-body. */
+  overflow-wrap: normal;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -850,6 +857,7 @@ html { scrollbar-color: var(--border) var(--background); }
    ────────────────────────────────────────────────────────── */
 .game-frame {
   position: relative;
+  min-width: 0;
   border: none;
   border-radius: 6px;
   background:
@@ -1142,6 +1150,8 @@ html { scrollbar-color: var(--border) var(--background); }
 
 .game-frame-body {
   padding: 1rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 /* ──────────────────────────────────────────────────────────

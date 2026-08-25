@@ -106,7 +106,7 @@ export function QuestAssignmentCard({
 
   return (
     <div
-      className={`rounded-md border px-3 py-2 ${
+      className={`min-w-0 overflow-hidden rounded-md border px-3 py-2 ${
         isCompleted
           ? "border-green-500/30 bg-green-500/5"
           : isSkipped
@@ -116,15 +116,15 @@ export function QuestAssignmentCard({
               : "border-border/50 bg-card/50"
       }`}
     >
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <span
           className={`inline-block h-3 w-3 shrink-0 rounded-full ${isTimerRunning && !isPaused ? "animate-pulse" : ""}`}
           style={{ backgroundColor: subject.color ?? "#6b7280" }}
         />
 
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <span className={`font-medium ${isCompleted ? "line-through text-muted-foreground" : ""}`}>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={`break-words font-medium ${isCompleted ? "line-through text-muted-foreground" : ""}`}>
               {quest.title}
             </span>
             {isTimerRunning ? (
@@ -138,7 +138,7 @@ export function QuestAssignmentCard({
             )}
           </div>
           {quest.description && (
-            <p className="mt-0.5 truncate text-xs text-muted-foreground">{quest.description}</p>
+            <p className="mt-0.5 line-clamp-3 text-xs wrap-anywhere text-muted-foreground">{quest.description}</p>
           )}
           {isPending && hasRewards && (
             <div className="mt-1 flex flex-wrap items-center gap-1.5">
