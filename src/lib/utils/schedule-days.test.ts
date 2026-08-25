@@ -5,6 +5,9 @@ import {
   addDaysToDate,
   defaultRepeatDaysForStartDate,
   syncRepeatDaysWithStartDate,
+  parseSchoolDays,
+  parseStreakOptionalDays,
+  DEFAULT_SCHOOL_DAYS,
 } from "./schedule-days";
 
 describe("timeRangesOverlap", () => {
@@ -84,5 +87,30 @@ describe("syncRepeatDaysWithStartDate", () => {
   it("leaves days unchanged when the start date isn't a school day", () => {
     // 2026-03-07 is Saturday
     expect(syncRepeatDaysWithStartDate(["mon"], "2026-03-07", ["mon", "tue", "wed", "thu", "fri"])).toEqual(["mon"]);
+  });
+});
+
+describe("parseSchoolDays", () => {
+  it("falls back to Mon-Fri for null, empty, and malformed values", () => {
+    expect(parseSchoolDays(null)).toEqual(DEFAULT_SCHOOL_DAYS);
+    expect(parseSchoolDays("[]")).toEqual(DEFAULT_SCHOOL_DAYS);
+    expect(parseSchoolDays("not json")).toEqual(DEFAULT_SCHOOL_DAYS);
+    expect(parseSchoolDays('{"mon":true}')).toEqual(DEFAULT_SCHOOL_DAYS);
+  });
+
+  it("keeps a stored selection and drops unrecognized codes", () => {
+    expect(parseSchoolDays('["mon","tue","funday"]')).toEqual(["mon", "tue"]);
+  });
+});
+
+describe("parseStreakOptionalDays", () => {
+  it("defaults to none — every school day counts unless tagged", () => {
+    expect(parseStreakOptionalDays(null)).toEqual([]);
+    expect(parseStreakOptionalDays("[]")).toEqual([]);
+    expect(parseStreakOptionalDays("not json")).toEqual([]);
+  });
+
+  it("keeps a stored selection and drops unrecognized codes", () => {
+    expect(parseStreakOptionalDays('["fri","someday"]')).toEqual(["fri"]);
   });
 });

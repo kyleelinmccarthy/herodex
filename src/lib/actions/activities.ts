@@ -7,6 +7,7 @@ import * as schema from "@/lib/db/schema";
 import { sanitizeName, sanitizeText } from "@/lib/utils/sanitize";
 import { formatDate } from "@/lib/utils/dates";
 import { computeStreak } from "@/lib/utils/streak";
+import { parseSchoolDays, parseStreakOptionalDays } from "@/lib/utils/schedule-days";
 import { requireChildAccess, requireActivityAccess } from "@/lib/auth/access";
 
 export async function getActivities(childId: string, date?: string) {
@@ -159,7 +160,7 @@ async function updateStreakAndXp(childId: string) {
   const windowStart = new Date(today);
   windowStart.setDate(windowStart.getDate() - 365);
 
-  const [activeDays, totalCount, childRow] = await Promise.all([
+  const [activeDays, totalCount, childRow, breaks] = await Promise.all([
     db
       .select({ date: schema.activityLog.date })
       .from(schema.activityLog)
@@ -180,15 +181,38 @@ async function updateStreakAndXp(childId: string) {
       .select({
         longestStreak: schema.child.longestStreak,
         bonusXp: schema.child.bonusXp,
+        schoolDays: schema.child.schoolDays,
+        streakOptionalDays: schema.child.streakOptionalDays,
       })
       .from(schema.child)
       .where(eq(schema.child.id, childId))
       .limit(1),
+    // Days off in the same look-back window: skipped rather than streak-breaking.
+    db
+      .select({
+        startDate: schema.schoolBreak.startDate,
+        endDate: schema.schoolBreak.endDate,
+      })
+      .from(schema.schoolBreak)
+      .innerJoin(schema.child, eq(schema.child.familyId, schema.schoolBreak.familyId))
+      .where(
+        and(
+          eq(schema.child.id, childId),
+          gte(schema.schoolBreak.endDate, formatDate(windowStart)),
+        ),
+      ),
   ]);
 
+  // Days where nothing is expected — days off, optional days, breaks — must
+  // not reset the streak.
   const streak = computeStreak(
     activeDays.map((row) => row.date),
     today,
+    {
+      schoolDays: parseSchoolDays(childRow[0]?.schoolDays),
+      optionalDays: parseStreakOptionalDays(childRow[0]?.streakOptionalDays),
+      breaks,
+    },
   );
 
   const longestStreak = Math.max(streak, childRow[0]?.longestStreak ?? 0);

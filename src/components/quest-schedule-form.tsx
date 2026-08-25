@@ -14,6 +14,7 @@ import {
   defaultRepeatDaysForStartDate,
   syncRepeatDaysWithStartDate,
 } from "@/lib/utils/schedule-days";
+import { ANYTIME_DESCRIPTION, describeSchedule } from "@/lib/utils/schedule-summary";
 
 type Frequency = "once" | "daily" | "weekly" | "monthly";
 
@@ -106,6 +107,20 @@ export function QuestScheduleForm({
         {error && (
           <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</div>
         )}
+
+        {/* Having no schedule is a state with consequences, so say so plainly
+            rather than showing an empty form that looks like nothing is set. */}
+        <div className="rounded-md border border-dashed border-border/60 px-3 py-2">
+          <p className="text-xs">
+            <span className="text-muted-foreground">Currently: </span>
+            <span className={schedule ? "font-medium text-[var(--gold-bright)]" : "font-medium"}>
+              {describeSchedule(schedule)}
+            </span>
+          </p>
+          {!schedule && (
+            <p className="mt-1 text-[10px] text-muted-foreground">{ANYTIME_DESCRIPTION}</p>
+          )}
+        </div>
 
         <div className="space-y-2">
           <Label>Frequency</Label>
@@ -217,14 +232,22 @@ export function QuestScheduleForm({
           )}
         </div>
 
-        <div className="flex gap-2">
-          <Button onClick={handleSave} disabled={saving}>
-            {saving ? "Saving..." : schedule ? "Update Schedule" : "Set Schedule"}
-          </Button>
-          {schedule && (
-            <Button variant="outline" onClick={handleRemove}>
-              Remove Schedule
+        <div className="space-y-2">
+          <div className="flex gap-2">
+            <Button onClick={handleSave} disabled={saving}>
+              {saving ? "Saving..." : schedule ? "Update Schedule" : "Set Schedule"}
             </Button>
+            {schedule && (
+              <Button variant="outline" onClick={handleRemove}>
+                Make available anytime
+              </Button>
+            )}
+          </div>
+          {schedule && (
+            <p className="text-[10px] text-muted-foreground">
+              Dropping the schedule clears the days it had already planned and leaves the quest
+              startable on any day. Completed work is kept.
+            </p>
           )}
         </div>
       </div>

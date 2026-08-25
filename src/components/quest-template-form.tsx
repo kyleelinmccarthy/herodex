@@ -17,10 +17,19 @@ import {
   defaultRepeatDaysForStartDate,
   syncRepeatDaysWithStartDate,
 } from "@/lib/utils/schedule-days";
+import { ANYTIME_DESCRIPTION } from "@/lib/utils/schedule-summary";
 
 type Subject = { id: string; name: string; color: string | null };
 
 type RepeatFrequency = "once" | "daily" | "weekly" | "monthly";
+
+/**
+ * Whether the quest is pinned to dates or startable any day. `null` is "not
+ * answered yet" — a new quest starts here so that becoming an anytime quest is
+ * something a parent picks, never something they get by not noticing a toggle.
+ * Editing an existing quest starts on whatever it actually is today.
+ */
+type Availability = "anytime" | "scheduled" | null;
 
 function ordinal(n: number): string {
   const suffix = ["th", "st", "nd", "rd"][n % 10 > 3 || Math.floor(n % 100 / 10) === 1 ? 0 : n % 10];
@@ -97,7 +106,9 @@ export function QuestTemplateForm({
   );
   const [requireNotes, setRequireNotes] = useState(quest?.requireNotes ?? false);
   const defaultRepeatStartDate = schedule?.startDate ?? new Date().toISOString().slice(0, 10);
-  const [repeatEnabled, setRepeatEnabled] = useState(!!schedule);
+  const [availability, setAvailability] = useState<Availability>(
+    isEditing ? (schedule ? "scheduled" : "anytime") : null
+  );
   const [repeatFrequency, setRepeatFrequency] = useState<RepeatFrequency>(
     (schedule?.frequency as RepeatFrequency) ?? "once"
   );
@@ -128,7 +139,7 @@ export function QuestTemplateForm({
     setShowRewards(false);
     setIncludeInLearningLog(true);
     setRequireNotes(false);
-    setRepeatEnabled(false);
+    setAvailability(null);
     setRepeatFrequency("once");
     setRepeatDays(defaultRepeatDaysForStartDate(today, schoolDays));
     setRepeatIntervalWeeks(1);
@@ -168,7 +179,11 @@ export function QuestTemplateForm({
         rewardAvatarItem: rewardAvatarItem || undefined,
       };
 
-      if (repeatEnabled && repeatFrequency === "weekly") {
+      if (availability === null) {
+        throw new Error("Choose when this quest is available");
+      }
+
+      if (availability === "scheduled" && repeatFrequency === "weekly") {
         if (repeatDays.length === 0) {
           throw new Error("Pick at least one day for the quest to repeat on");
         }
@@ -177,7 +192,7 @@ export function QuestTemplateForm({
         }
       }
 
-      const schedulePayload = repeatEnabled
+      const schedulePayload = availability === "scheduled"
         ? {
             frequency: repeatFrequency,
             daysOfWeek: repeatFrequency === "weekly" ? repeatDays : undefined,
@@ -308,23 +323,48 @@ export function QuestTemplateForm({
             />
           </div>
 
-          {/* Repeat Section */}
+          {/* Availability: an explicit question, because "no schedule" is a real
+              state with real consequences and must never be arrived at by default. */}
           <div className="space-y-3 rounded-lg border border-dashed border-border p-3">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="quest-repeat">Schedule this quest</Label>
-                <p className="text-[10px] text-muted-foreground">
-                  Assign this quest to a specific day, or have it repeat
-                </p>
-              </div>
-              <Switch
-                checked={repeatEnabled}
-                onCheckedChange={() => setRepeatEnabled((v) => !v)}
-                aria-label="Schedule this quest"
-              />
+            <div className="space-y-0.5">
+              <Label>When can this quest be done?</Label>
+              <p className="text-[10px] text-muted-foreground">
+                Both answers behave differently — pick the one you want.
+              </p>
             </div>
 
-            {repeatEnabled && (
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant={availability === "anytime" ? "default" : "outline"}
+                onClick={() => { setAvailability("anytime"); setError(""); }}
+                aria-pressed={availability === "anytime"}
+              >
+                Anytime
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={availability === "scheduled" ? "default" : "outline"}
+                onClick={() => { setAvailability("scheduled"); setError(""); }}
+                aria-pressed={availability === "scheduled"}
+              >
+                On a schedule
+              </Button>
+            </div>
+
+            {availability === null && (
+              <p className="text-[10px] text-muted-foreground">
+                Choose one to continue.
+              </p>
+            )}
+
+            {availability === "anytime" && (
+              <p className="text-[10px] text-muted-foreground">{ANYTIME_DESCRIPTION}</p>
+            )}
+
+            {availability === "scheduled" && (
               <div className="space-y-3">
                 <div className="space-y-2">
                   <Label>Frequency</Label>

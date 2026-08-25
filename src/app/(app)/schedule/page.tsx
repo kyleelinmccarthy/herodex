@@ -6,6 +6,7 @@ import {
   getSchoolDays,
   getScheduleBlocks,
   getScheduleSelfManage,
+  getStreakOptionalDays,
 } from "@/lib/actions/student-schedule";
 import { ChildSelector } from "@/components/child-selector";
 import { GameFrame } from "@/components/game-frame";
@@ -37,9 +38,10 @@ export default async function SchedulePage({
     );
   }
 
-  const [subjects, schoolDays, blocks, selfManageEnabled] = await Promise.all([
+  const [subjects, schoolDays, optionalDays, blocks, selfManageEnabled] = await Promise.all([
     getSubjects(activeChild.id),
     getSchoolDays(activeChild.id),
+    getStreakOptionalDays(activeChild.id),
     getScheduleBlocks(activeChild.id),
     getScheduleSelfManage(activeChild.id),
   ]);
@@ -84,6 +86,7 @@ export default async function SchedulePage({
           childId={activeChild.id}
           subjects={subjects}
           schoolDays={schoolDays}
+          optionalDays={optionalDays}
           blocks={blocks}
           canEdit={canEdit}
         />

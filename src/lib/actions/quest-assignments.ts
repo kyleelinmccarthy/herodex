@@ -1,7 +1,7 @@
 "use server";
 
 import { nanoid } from "nanoid";
-import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
+import { eq, and, gte, lte, ne, or, desc, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { createActivity } from "@/lib/actions/activities";
@@ -12,6 +12,19 @@ import { requireChildAccess, requireAssignmentAccess, isChildActor } from "@/lib
 import { sanitizeText } from "@/lib/utils/sanitize";
 import { weekdayOfDate } from "@/lib/utils/schedule-days";
 import { getNextStructuredQuest } from "@/lib/utils/quest-ordering";
+import { pruneStaleAssignmentsInRange } from "@/lib/services/quest-assignment-sync";
+
+/**
+ * A removed quest keeps its finished assignments — they're the hero's history
+ * and the learning log reads them back — but its *pending* rows are a plan
+ * that no longer exists, so they must never surface in Today's Quests or
+ * Upcoming Quests. Assignment cleanup deletes those rows at the source; this
+ * is the read-side guard that also covers rows stranded before that existed.
+ */
+const visibleAssignment = or(
+  eq(schema.quest.isActive, true),
+  ne(schema.questAssignment.status, "pending")
+);
 
 export async function getAssignmentsForDate(childId: string, date: string) {
   await requireChildAccess(childId);
@@ -27,7 +40,8 @@ export async function getAssignmentsForDate(childId: string, date: string) {
     .where(
       and(
         eq(schema.questAssignment.childId, childId),
-        eq(schema.questAssignment.date, date)
+        eq(schema.questAssignment.date, date),
+        visibleAssignment
       )
     );
 }
@@ -51,7 +65,8 @@ export async function getAssignmentsForDateRange(
       and(
         eq(schema.questAssignment.childId, childId),
         gte(schema.questAssignment.date, startDate),
-        lte(schema.questAssignment.date, endDate)
+        lte(schema.questAssignment.date, endDate),
+        visibleAssignment
       )
     );
 }
@@ -187,6 +202,13 @@ export async function generateAssignmentsFromSchedules(
   // child acting on their own profile. (No requireAdultActor: that gate crashed
   // the tavern/quests pages for any logged-in hero.)
   await requireChildAccess(childId, { write: true });
+  const schoolDays = await getSchoolDays(childId);
+
+  // Generation only ever adds rows, so retiring a quest or its repeat used to
+  // leave the days it had already planned sitting in this window forever.
+  // Sweep those out first, before anything reads the range back.
+  await pruneStaleAssignmentsInRange(childId, startDate, endDate, schoolDays);
+
   // Get all active quests with schedules for this child
   const questsWithSchedules = await db
     .select({
@@ -222,8 +244,6 @@ export async function generateAssignmentsFromSchedules(
   const existingSet = new Set(
     existingAssignments.map((a) => `${a.questId}:${a.date}`)
   );
-
-  const schoolDays = await getSchoolDays(childId);
 
   let created = 0;
   const now = new Date();

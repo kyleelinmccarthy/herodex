@@ -105,7 +105,7 @@ describe("QuestTemplateForm", () => {
 
   it("only offers school days as weekly repeat day options", async () => {
     const user = userEvent.setup();
-    const { container } = render(
+    render(
       <QuestTemplateForm
         childId="c1"
         subjects={subjects}
@@ -114,15 +114,16 @@ describe("QuestTemplateForm", () => {
         schoolDays={schoolDays}
       />
     );
-    await user.click(container.querySelector('button[aria-label="Repeat this quest"]')!);
+    await user.click(screen.getByText("On a schedule"));
+    await user.click(screen.getByText("Weekly"));
     expect(screen.getByText("Mon")).toBeInTheDocument();
     expect(screen.queryByText("Sat")).not.toBeInTheDocument();
     expect(screen.queryByText("Sun")).not.toBeInTheDocument();
   });
 
-  it("shows Daily, Weekly, and Monthly frequency options with an interval input for Weekly", async () => {
+  it("shows Once, Daily, Weekly, and Monthly frequency options with an interval input for Weekly", async () => {
     const user = userEvent.setup();
-    const { container } = render(
+    render(
       <QuestTemplateForm
         childId="c1"
         subjects={subjects}
@@ -131,14 +132,121 @@ describe("QuestTemplateForm", () => {
         schoolDays={schoolDays}
       />
     );
-    await user.click(container.querySelector('button[aria-label="Repeat this quest"]')!);
+    await user.click(screen.getByText("On a schedule"));
+    expect(screen.getByText("Once")).toBeInTheDocument();
     expect(screen.getByText("Daily")).toBeInTheDocument();
     expect(screen.getByText("Weekly")).toBeInTheDocument();
     expect(screen.getByText("Monthly")).toBeInTheDocument();
+
+    // Scheduling opens on "Once", so the weekly interval only appears once Weekly is picked.
+    await user.click(screen.getByText("Weekly"));
     expect(screen.getByLabelText("Repeat every")).toBeInTheDocument();
 
     await user.click(screen.getByText("Monthly"));
     expect(screen.queryByLabelText("Repeat every")).not.toBeInTheDocument();
     expect(screen.queryByText("Mon")).not.toBeInTheDocument();
+  });
+  describe("availability choice", () => {
+    const quest = {
+      id: "q1",
+      title: "Read Chapter 5",
+      subjectId: "s2",
+      description: null,
+      estimatedMinutes: null,
+      rewardXp: null,
+      rewardDescription: null,
+      rewardAvatarItem: null,
+    };
+    const schedule = {
+      id: "sch1",
+      frequency: "weekly",
+      daysOfWeek: JSON.stringify(["mon", "wed"]),
+      intervalWeeks: 1,
+      startDate: "2026-08-24",
+      endDate: null,
+    };
+
+    it("preselects neither option for a new quest, so 'Anytime' can't happen by default", () => {
+      render(
+        <QuestTemplateForm
+          childId="c1"
+          subjects={subjects}
+          open={true}
+          onClose={vi.fn()}
+          schoolDays={schoolDays}
+        />
+      );
+      expect(screen.getByText("Anytime")).toHaveAttribute("aria-pressed", "false");
+      expect(screen.getByText("On a schedule")).toHaveAttribute("aria-pressed", "false");
+      // Neither branch's detail is showing yet.
+      expect(screen.queryByText("Frequency")).not.toBeInTheDocument();
+    });
+
+    it("refuses to save a new quest until the parent picks one", async () => {
+      const user = userEvent.setup();
+      render(
+        <QuestTemplateForm
+          childId="c1"
+          subjects={subjects}
+          open={true}
+          onClose={vi.fn()}
+          schoolDays={schoolDays}
+        />
+      );
+      await user.type(screen.getByLabelText("Quest Title"), "New Quest");
+      await user.click(screen.getByText("Create Quest"));
+      expect(await screen.findByText("Choose when this quest is available")).toBeInTheDocument();
+    });
+
+    it("explains what Anytime actually means once picked", async () => {
+      const user = userEvent.setup();
+      render(
+        <QuestTemplateForm
+          childId="c1"
+          subjects={subjects}
+          open={true}
+          onClose={vi.fn()}
+          schoolDays={schoolDays}
+        />
+      );
+      await user.click(screen.getByText("Anytime"));
+      expect(screen.getByText(/any day until it's completed/)).toBeInTheDocument();
+      expect(screen.getByText(/won't appear in Today's Quests/)).toBeInTheDocument();
+    });
+
+    it("opens an edit on the quest's real state — scheduled quest shows its schedule", () => {
+      render(
+        <QuestTemplateForm
+          childId="c1"
+          subjects={subjects}
+          quest={quest}
+          schedule={schedule}
+          open={true}
+          onClose={vi.fn()}
+          schoolDays={schoolDays}
+        />
+      );
+      expect(screen.getByText("On a schedule")).toHaveAttribute("aria-pressed", "true");
+      expect(screen.getByText("Anytime")).toHaveAttribute("aria-pressed", "false");
+      expect(screen.getByText("Frequency")).toBeInTheDocument();
+      expect(screen.getByLabelText("Repeat every")).toHaveValue(1);
+    });
+
+    it("opens an edit on the quest's real state — unscheduled quest reads as Anytime", () => {
+      render(
+        <QuestTemplateForm
+          childId="c1"
+          subjects={subjects}
+          quest={quest}
+          schedule={null}
+          open={true}
+          onClose={vi.fn()}
+          schoolDays={schoolDays}
+        />
+      );
+      expect(screen.getByText("Anytime")).toHaveAttribute("aria-pressed", "true");
+      expect(screen.getByText("On a schedule")).toHaveAttribute("aria-pressed", "false");
+      expect(screen.getByText(/any day until it's completed/)).toBeInTheDocument();
+    });
   });
 });

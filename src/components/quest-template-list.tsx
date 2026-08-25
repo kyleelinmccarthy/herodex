@@ -8,6 +8,7 @@ import { GameFrame } from "@/components/game-frame";
 import { GameIcon } from "@/components/game-icon";
 import { QuestTemplateForm } from "./quest-template-form";
 import { deleteQuest } from "@/lib/actions/quests";
+import { ANYTIME_LABEL, describeSchedule } from "@/lib/utils/schedule-summary";
 
 const HIDE_COMPLETED_KEY = "kingdomsandcrowns-hide-completed-quests";
 
@@ -87,6 +88,11 @@ export function QuestTemplateList({
     return assignmentStatusByQuest[q.id]?.status !== "completed";
   });
 
+  // A quest dropping out of this list without a word reads as "it got deleted" —
+  // which is exactly what happens the moment a repeat is switched off on a quest
+  // that has been completed before. Say how many are hidden so it's legible.
+  const hiddenCount = quests.length - visibleQuests.length;
+
   // Group quests by subject
   const grouped = new Map<string, Quest[]>();
   for (const q of visibleQuests) {
@@ -115,6 +121,11 @@ export function QuestTemplateList({
               onChange={(e) => toggleHideCompleted(e.target.checked)}
             />
             Hide completed quests
+            {hiddenCount > 0 && (
+              <span className="text-[var(--gold-bright)]">
+                ({hiddenCount} hidden)
+              </span>
+            )}
           </label>
         )}
         {quests.length === 0 ? (
@@ -158,6 +169,29 @@ export function QuestTemplateList({
                               ~{q.estimatedMinutes}min
                             </span>
                           )}
+                          {(() => {
+                            // Without this, a Mon/Wed quest and an always-available
+                            // one look identical here — which is what made removing
+                            // a repeat feel like it had done nothing at all.
+                            const summary = describeSchedule(scheduleByQuestId.get(q.id) ?? null);
+                            const isAnytime = summary === ANYTIME_LABEL;
+                            return (
+                              <span
+                                className={`ml-2 whitespace-nowrap rounded-full border px-1.5 py-0.5 text-[10px] ${
+                                  isAnytime
+                                    ? "border-border/60 text-muted-foreground"
+                                    : "border-[var(--gold-dim)] text-[var(--gold-bright)]"
+                                }`}
+                                title={
+                                  isAnytime
+                                    ? "No schedule — startable any day until it's completed"
+                                    : `Scheduled: ${summary}`
+                                }
+                              >
+                                {summary}
+                              </span>
+                            );
+                          })()}
                           {q.requireNotes && (
                             <span
                               className="ml-2 inline-flex items-center gap-0.5 text-xs text-[var(--gold-bright)]"

@@ -14,6 +14,7 @@ import {
   createScheduleBlock,
   deleteScheduleBlock,
   setSchoolDays,
+  setStreakOptionalDay,
   updateScheduleBlock,
 } from "@/lib/actions/student-schedule";
 import {
@@ -92,12 +93,14 @@ export function StudentScheduleEditor({
   childId,
   subjects,
   schoolDays,
+  optionalDays,
   blocks,
   canEdit,
 }: {
   childId: string;
   subjects: Subject[];
   schoolDays: DayOfWeek[];
+  optionalDays: DayOfWeek[];
   blocks: Block[];
   canEdit: boolean;
 }) {
@@ -135,6 +138,16 @@ export function StudentScheduleEditor({
     }
   }
 
+  async function toggleOptionalDay(day: DayOfWeek) {
+    setError("");
+    try {
+      await setStreakOptionalDay(childId, day, !optionalDays.includes(day));
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update optional days");
+    }
+  }
+
   return (
     <GameFrame
       title="Weekly Schedule"
@@ -161,11 +174,13 @@ export function StudentScheduleEditor({
               childId={childId}
               day={day}
               isSchoolDay={schoolDays.includes(day)}
+              isOptionalDay={optionalDays.includes(day)}
               subjects={subjects}
               blocks={blocks.filter((b) => b.dayOfWeek === day)}
               allBlocks={blocks}
               canEdit={canEdit}
               onToggleSchoolDay={() => toggleSchoolDay(day)}
+              onToggleOptionalDay={() => toggleOptionalDay(day)}
               expanded={expandedDays.has(day)}
               onToggleExpanded={() => toggleDayExpanded(day)}
             />
@@ -180,22 +195,26 @@ function DayRow({
   childId,
   day,
   isSchoolDay,
+  isOptionalDay,
   subjects,
   blocks,
   allBlocks,
   canEdit,
   onToggleSchoolDay,
+  onToggleOptionalDay,
   expanded,
   onToggleExpanded,
 }: {
   childId: string;
   day: DayOfWeek;
   isSchoolDay: boolean;
+  isOptionalDay: boolean;
   subjects: Subject[];
   blocks: Block[];
   allBlocks: Block[];
   canEdit: boolean;
   onToggleSchoolDay: () => void;
+  onToggleOptionalDay: () => void;
   expanded: boolean;
   onToggleExpanded: () => void;
 }) {
@@ -261,6 +280,11 @@ function DayRow({
               ({sorted.length} class{sorted.length === 1 ? "" : "es"})
             </span>
           )}
+          {isSchoolDay && isOptionalDay && (
+            <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+              Optional
+            </span>
+          )}
         </button>
         {canEdit ? (
           <label className="flex cursor-pointer items-center gap-2.5 select-none">
@@ -292,6 +316,21 @@ function DayRow({
 
       {isSchoolDay && expanded && (
         <div className="mt-3 space-y-2">
+          {canEdit && (
+            <label className="flex cursor-pointer items-center justify-between gap-3 rounded-md border border-border/30 bg-background/40 px-3 py-2 select-none">
+              <span className="min-w-0">
+                <span className="text-sm">Optional day</span>
+                <span className="block text-xs text-muted-foreground">
+                  A quiet {DAY_LABELS[day]} won&apos;t break the streak.
+                </span>
+              </span>
+              <Switch
+                checked={isOptionalDay}
+                onCheckedChange={onToggleOptionalDay}
+                aria-label={`Make ${DAY_LABELS[day]} optional for streaks`}
+              />
+            </label>
+          )}
           {sorted.length === 0 && (
             <p className="text-sm text-muted-foreground">No classes scheduled.</p>
           )}

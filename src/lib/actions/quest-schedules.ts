@@ -4,7 +4,12 @@ import { nanoid } from "nanoid";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
+import { formatDate } from "@/lib/utils/dates";
 import { requireChildAccess, requireQuestAccess } from "@/lib/auth/access";
+import {
+  clearPendingAssignmentsForQuest,
+  syncPendingAssignmentsToSchedule,
+} from "@/lib/services/quest-assignment-sync";
 
 export async function getSchedulesForChild(childId: string) {
   await requireChildAccess(childId);
@@ -52,6 +57,11 @@ export async function upsertSchedule(
       .update(schema.questSchedule)
       .set(values)
       .where(eq(schema.questSchedule.id, existing.id));
+    // Narrowing a repeat (fewer days, a new start/end date, a longer interval)
+    // leaves behind assignment rows the old pattern already generated. Drop
+    // the ones the schedule no longer calls for so the hero isn't still shown
+    // quests on days that were just un-scheduled.
+    await syncPendingAssignmentsToSchedule(questId, formatDate(new Date()));
     return { id: existing.id };
   }
 
@@ -70,4 +80,10 @@ export async function deleteSchedule(questId: string) {
   await db
     .delete(schema.questSchedule)
     .where(eq(schema.questSchedule.questId, questId));
+
+  // Turning off "Schedule this quest" has to retract the days it already
+  // planned — otherwise the assignments generated from the old repeat keep
+  // showing in Today's Quests and Upcoming Quests with nothing left to
+  // explain them. Past completed/skipped work is untouched.
+  await clearPendingAssignmentsForQuest(questId, formatDate(new Date()));
 }

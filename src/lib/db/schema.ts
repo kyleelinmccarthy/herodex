@@ -196,6 +196,11 @@ export const child = sqliteTable(
     scheduleSelfManageEnabled: integer("schedule_self_manage_enabled", { mode: "boolean" }).notNull().default(false),
     // JSON array of weekday codes ("mon".."sun") that are school days; null = default Mon-Fri.
     schoolDays: text("school_days"),
+    // JSON array of weekday codes that are school days but optional: quests can
+    // be scheduled on them, yet logging nothing there never breaks the streak.
+    // null/absent = every school day is required. Days that aren't school days
+    // are already streak-safe, so listing one here is a no-op.
+    streakOptionalDays: text("streak_optional_days"),
     // Parent-set default: whether "Start a Quest" serves this hero's assignments
     // one at a time in schedule order (structured) or lets them free-pick from
     // today's list (unstructured).

@@ -11,6 +11,9 @@ export const DAY_LABELS: Record<DayOfWeek, string> = {
   sun: "Sun",
 };
 
+/** The weekdays that count as school days when a hero has no explicit selection. */
+export const DEFAULT_SCHOOL_DAYS: DayOfWeek[] = ["mon", "tue", "wed", "thu", "fri"];
+
 // Date.getUTCDay() is 0-indexed starting on Sunday, unlike DAYS_OF_WEEK above.
 const JS_DAY_ORDER: DayOfWeek[] = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
 
@@ -99,4 +102,35 @@ export function syncRepeatDaysWithStartDate(
   const wd = weekdayOfDate(startDate);
   if (!schoolDays.includes(wd)) return days;
   return days.includes(wd) ? days : [...days, wd];
+}
+
+/**
+ * Parses the JSON array stored in `child.school_days`, falling back to Mon-Fri
+ * for null/empty/malformed values. Pure so it can be shared by server actions
+ * and by streak math without another round-trip.
+ */
+export function parseSchoolDays(raw: string | null | undefined): DayOfWeek[] {
+  const parsed = parseDayCodes(raw);
+  return parsed.length > 0 ? parsed : DEFAULT_SCHOOL_DAYS;
+}
+
+/**
+ * Parses the JSON array stored in `child.streak_optional_days`: school days a
+ * hero may skip without breaking their streak. Empty by default — every school
+ * day counts unless a parent marks it optional.
+ */
+export function parseStreakOptionalDays(raw: string | null | undefined): DayOfWeek[] {
+  return parseDayCodes(raw);
+}
+
+/** Reads a JSON array of weekday codes, dropping anything unrecognized. */
+function parseDayCodes(raw: string | null | undefined): DayOfWeek[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw) as string[];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((d): d is DayOfWeek => (DAYS_OF_WEEK as readonly string[]).includes(d));
+  } catch {
+    return [];
+  }
 }

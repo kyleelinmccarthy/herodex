@@ -5,7 +5,9 @@ import { eq, and, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { sanitizeName, sanitizeText } from "@/lib/utils/sanitize";
+import { formatDate } from "@/lib/utils/dates";
 import { requireChildAccess, requireQuestAccess } from "@/lib/auth/access";
+import { clearPendingAssignmentsForQuest } from "@/lib/services/quest-assignment-sync";
 
 export async function getQuests(childId: string) {
   await requireChildAccess(childId);
@@ -143,4 +145,12 @@ export async function deleteQuest(questId: string) {
     .update(schema.quest)
     .set({ isActive: false, updatedAt: new Date() })
     .where(eq(schema.quest.id, questId));
+
+  // Deactivating the quest keeps it out of the Quest Giver and the "Start a
+  // Quest" list, but the scheduler has already materialized assignment rows
+  // for today and the days ahead — those have to go too, or the removed quest
+  // keeps showing up in Today's Quests and the dashboard's Upcoming Quests.
+  // Only pending rows from today forward: completed/skipped assignments are
+  // the hero's history and stay in the learning log.
+  await clearPendingAssignmentsForQuest(questId, formatDate(new Date()));
 }

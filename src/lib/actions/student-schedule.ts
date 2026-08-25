@@ -10,9 +10,13 @@ import {
   assertCanEditScheduleContent,
   isChildActor,
 } from "@/lib/auth/access";
-import { DAYS_OF_WEEK, timeRangesOverlap, type DayOfWeek } from "@/lib/utils/schedule-days";
-
-const DEFAULT_SCHOOL_DAYS: DayOfWeek[] = ["mon", "tue", "wed", "thu", "fri"];
+import {
+  DAYS_OF_WEEK,
+  parseSchoolDays,
+  parseStreakOptionalDays,
+  timeRangesOverlap,
+  type DayOfWeek,
+} from "@/lib/utils/schedule-days";
 
 function isValidTime(value: string): boolean {
   return /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
@@ -25,15 +29,7 @@ export async function getSchoolDays(childId: string): Promise<DayOfWeek[]> {
     .from(schema.child)
     .where(eq(schema.child.id, childId))
     .limit(1);
-  const raw = rows[0]?.schoolDays;
-  if (!raw) return DEFAULT_SCHOOL_DAYS;
-  try {
-    const parsed = JSON.parse(raw) as string[];
-    const valid = parsed.filter((d): d is DayOfWeek => (DAYS_OF_WEEK as readonly string[]).includes(d));
-    return valid.length > 0 ? valid : DEFAULT_SCHOOL_DAYS;
-  } catch {
-    return DEFAULT_SCHOOL_DAYS;
-  }
+  return parseSchoolDays(rows[0]?.schoolDays);
 }
 
 export async function setSchoolDays(childId: string, days: DayOfWeek[]) {
@@ -44,6 +40,40 @@ export async function setSchoolDays(childId: string, days: DayOfWeek[]) {
   await db
     .update(schema.child)
     .set({ schoolDays: JSON.stringify(clean), updatedAt: new Date() })
+    .where(eq(schema.child.id, childId));
+}
+
+/** School days this hero may skip without breaking their streak. */
+export async function getStreakOptionalDays(childId: string): Promise<DayOfWeek[]> {
+  await requireChildAccess(childId);
+  const rows = await db
+    .select({ optionalDays: schema.child.streakOptionalDays })
+    .from(schema.child)
+    .where(eq(schema.child.id, childId))
+    .limit(1);
+  return parseStreakOptionalDays(rows[0]?.optionalDays);
+}
+
+export async function setStreakOptionalDay(childId: string, day: DayOfWeek, optional: boolean) {
+  const { access } = await requireChildAccess(childId, { write: true });
+  await assertCanEditScheduleContent(childId, access);
+  if (!(DAYS_OF_WEEK as readonly string[]).includes(day)) {
+    throw new Error("Unknown day of week.");
+  }
+
+  const rows = await db
+    .select({ optionalDays: schema.child.streakOptionalDays })
+    .from(schema.child)
+    .where(eq(schema.child.id, childId))
+    .limit(1);
+  const current = parseStreakOptionalDays(rows[0]?.optionalDays);
+  const next = optional
+    ? DAYS_OF_WEEK.filter((d) => current.includes(d) || d === day)
+    : current.filter((d) => d !== day);
+
+  await db
+    .update(schema.child)
+    .set({ streakOptionalDays: JSON.stringify(next), updatedAt: new Date() })
     .where(eq(schema.child.id, childId));
 }
 
