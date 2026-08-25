@@ -106,3 +106,44 @@ export function getNextStructuredQuest<T extends OrderableQuest>(
 ): T | null {
   return getOrderedAvailableQuests(params)[0] ?? null;
 }
+
+export type WeeklyBlockLite = { dayOfWeek: string; subjectId: string; startTime: string };
+
+/** Earliest start time per (weekday, subject) across a child's whole weekly schedule, keyed `"day|subjectId"`. */
+export function earliestStartTimeByDayAndSubject(blocks: WeeklyBlockLite[]): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const block of blocks) {
+    const key = `${block.dayOfWeek}|${block.subjectId}`;
+    const existing = map.get(key);
+    if (!existing || block.startTime < existing) map.set(key, block.startTime);
+  }
+  return map;
+}
+
+export type UpcomingItemLite = { date: string; sortOrder: number };
+
+/** Sorts after every real "HH:mm", so unscheduled items trail that day's scheduled ones. */
+const UNSCHEDULED_START = "99:99";
+
+/**
+ * Chronological order across the whole family: by date, then by the subject's
+ * scheduled start time that day, so two heroes' mornings interleave instead of
+ * listing one hero's entire week before the next hero's. Ties fall back to the
+ * quest's own sortOrder, then to the incoming order (a stable, deterministic
+ * tiebreak rather than array-position luck from the sort itself).
+ */
+export function sortUpcomingBySchedule<T extends UpcomingItemLite>(
+  items: T[],
+  startTimeFor: (item: T) => string | undefined
+): T[] {
+  return items
+    .map((item, index) => ({ item, index, startTime: startTimeFor(item) ?? UNSCHEDULED_START }))
+    .sort(
+      (a, b) =>
+        a.item.date.localeCompare(b.item.date) ||
+        a.startTime.localeCompare(b.startTime) ||
+        a.item.sortOrder - b.item.sortOrder ||
+        a.index - b.index
+    )
+    .map((entry) => entry.item);
+}

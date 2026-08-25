@@ -5,7 +5,13 @@ import {
   getAssignmentsForDateRange,
   generateAssignmentsFromSchedules,
 } from "@/lib/actions/quest-assignments";
+import { getScheduleBlocks } from "@/lib/actions/student-schedule";
 import { formatDate } from "@/lib/utils/dates";
+import { formatTimeOfDay, weekdayOfDate } from "@/lib/utils/schedule-days";
+import {
+  earliestStartTimeByDayAndSubject,
+  sortUpcomingBySchedule,
+} from "@/lib/utils/quest-ordering";
 import { GameFrame } from "@/components/game-frame";
 import { GameIcon, type GameIconName } from "@/components/game-icon";
 import { Avatar } from "@/components/avatar";
@@ -26,22 +32,36 @@ export async function ParentDashboard({ allChildren }: { allChildren: ChildRow[]
 
   const perChild = await Promise.all(
     allChildren.map(async (child) => {
-      const [todayAssignments, upcoming] = await Promise.all([
+      const [todayAssignments, upcoming, blocks] = await Promise.all([
         getAssignmentsForDate(child.id, today),
         getAssignmentsForDateRange(child.id, today, weekOut),
+        getScheduleBlocks(child.id),
       ]);
-      return { child, todayAssignments, upcoming };
+      return {
+        child,
+        todayAssignments,
+        upcoming,
+        startTimes: earliestStartTimeByDayAndSubject(blocks),
+      };
     })
   );
 
-  const upcomingCombined = perChild
-    .flatMap(({ child, upcoming }) =>
+  // One chronological list for the whole family: a hero's 9am block should sit
+  // next to their sibling's 9am block, not a page apart.
+  const upcomingCombined = sortUpcomingBySchedule(
+    perChild.flatMap(({ child, upcoming, startTimes }) =>
       upcoming
         .filter((a) => a.assignment.date >= today && a.assignment.status === "pending")
-        .map((a) => ({ ...a, childName: child.displayName }))
-    )
-    .sort((a, b) => a.assignment.date.localeCompare(b.assignment.date))
-    .slice(0, 8);
+        .map((a) => ({
+          ...a,
+          childName: child.displayName,
+          date: a.assignment.date,
+          sortOrder: a.quest.sortOrder,
+          startTime: startTimes.get(`${weekdayOfDate(a.assignment.date)}|${a.quest.subjectId}`),
+        }))
+    ),
+    (a) => a.startTime
+  ).slice(0, 8);
 
   return (
     <div className="hud-layout">
@@ -82,7 +102,10 @@ export async function ParentDashboard({ allChildren }: { allChildren: ChildRow[]
                   <span className="font-medium">{a.childName}</span> — {a.quest.title}
                   <span className="text-muted-foreground"> ({a.subject.name})</span>
                 </span>
-                <span className="text-xs text-muted-foreground">{a.assignment.date}</span>
+                <span className="shrink-0 pl-2 text-right text-xs text-muted-foreground">
+                  {a.assignment.date}
+                  {a.startTime ? ` · ${formatTimeOfDay(a.startTime)}` : ""}
+                </span>
               </div>
             ))}
           </div>
