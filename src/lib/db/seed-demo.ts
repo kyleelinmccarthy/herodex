@@ -238,6 +238,35 @@ async function seed() {
     }).onConflictDoNothing();
   }
 
+  // Weekly class schedule — powers the /schedule page for the walkthrough.
+  type Weekday = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
+  const scheduleBlockDefs: { subjectIdx: number; days: Weekday[]; startTime: string; endTime: string }[] = [
+    { subjectIdx: 0, days: ["mon", "tue", "wed", "thu", "fri"], startTime: "08:00", endTime: "08:45" }, // Math
+    { subjectIdx: 1, days: ["mon", "tue", "wed", "thu", "fri"], startTime: "08:45", endTime: "09:30" }, // Reading
+    { subjectIdx: 2, days: ["tue", "thu"], startTime: "09:45", endTime: "10:30" }, // Science
+    { subjectIdx: 3, days: ["mon", "wed"], startTime: "09:45", endTime: "10:30" }, // History
+    { subjectIdx: 4, days: ["fri"], startTime: "09:45", endTime: "10:45" }, // Art
+  ];
+
+  for (const c of children) {
+    await db.delete(schema.scheduleBlock).where(eq(schema.scheduleBlock.childId, c.id));
+    const sIds = subjectIds[c.id];
+    for (const def of scheduleBlockDefs) {
+      for (const day of def.days) {
+        await db.insert(schema.scheduleBlock).values({
+          id: `${c.id}-sched-${def.subjectIdx}-${day}`,
+          childId: c.id,
+          subjectId: sIds[def.subjectIdx],
+          dayOfWeek: day,
+          startTime: def.startTime,
+          endTime: def.endTime,
+          createdAt: now,
+          updatedAt: now,
+        }).onConflictDoNothing();
+      }
+    }
+  }
+
   // Quest templates with schedules, resources, and reminders
   const questDefs = [
     {
@@ -375,6 +404,35 @@ async function seed() {
     }
   }
 
+  // Completed quest assignments this week — powers the Complete Adventure
+  // learning log recap on the marketing walkthrough.
+  for (const c of children) {
+    await db.delete(schema.questAssignment).where(eq(schema.questAssignment.childId, c.id));
+  }
+
+  const assignmentDefs = [
+    { questIdx: 0, dayOffset: 0, minutes: 45 },
+    { questIdx: 1, dayOffset: 0, minutes: 30 },
+    { questIdx: 2, dayOffset: 1, minutes: 20 },
+    { questIdx: 3, dayOffset: 1, minutes: 25 },
+  ];
+
+  for (const c of children) {
+    for (const def of assignmentDefs) {
+      const completedAt = daysAgo(def.dayOffset);
+      await db.insert(schema.questAssignment).values({
+        id: `${c.id}-assign-${def.questIdx}-${def.dayOffset}`,
+        questId: `${c.id}-quest-${def.questIdx}`,
+        childId: c.id,
+        date: isoDate(completedAt),
+        status: "completed",
+        completedAt,
+        createdAt: completedAt,
+        updatedAt: completedAt,
+      }).onConflictDoNothing();
+    }
+  }
+
   console.log("Demo data seeded successfully!");
   console.log("  - 1 user (demo@kingdomsandcrowns.local)");
   console.log("  - 1 family");
@@ -383,6 +441,8 @@ async function seed() {
   console.log("  - 14 days of activity logs");
   console.log("  - 11 badges (streak, volume, subject, special)");
   console.log("  - 4 quest templates per child (with schedules, resources, reminders, rewards)");
+  console.log("  - weekly class schedule per child (Math, Reading, Science, History, Art)");
+  console.log("  - 4 completed quest assignments per child this week (for the learning log recap)");
   process.exit(0);
 }
 

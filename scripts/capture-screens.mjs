@@ -31,7 +31,7 @@ const EXECUTABLE =
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // Keep this in sync with SCREENS_REV in walkthrough-data.ts — the version is
 // part of the path so re-captures always land on a fresh, un-cached URL.
-const SCREENS_REV = "r2";
+const SCREENS_REV = "r3";
 const OUT_DIR = path.join(__dirname, "..", "public", "marketing", "screens", SCREENS_REV);
 fs.mkdirSync(OUT_DIR, { recursive: true });
 
@@ -51,8 +51,10 @@ const SHOTS = [
   { persona: "parent", url: "/invite/demo-invite-token", name: "parent-invite", viewport: { width: 1280, height: 560 } },
   { persona: "parent", url: "/settings", name: "parent-hearth" },
   { persona: "parent", url: "/scrolls", name: "parent-quest-giver" },
+  { persona: "parent", url: "/scrolls", name: "parent-new-quest", action: "newQuest" },
+  { persona: "parent", url: "/schedule", name: "parent-schedule" },
   { persona: "parent", url: "/tavern", name: "parent-tavern" },
-  { persona: "parent", url: "/quests", name: "parent-quest-log" },
+  { persona: "parent", url: "/quests", name: "parent-quest-log", action: "completeAdventure" },
   { persona: "parent", url: "/loot", name: "parent-treasure-chest" },
   { persona: "parent", url: "/castle", name: "parent-castle" },
   { persona: "parent", url: "/leaderboard", name: "parent-hall-of-legends" },
@@ -121,6 +123,17 @@ async function run() {
       if (shot.action === "customize") {
         await page.click("button.hud-hero-showcase").catch(() => {});
         await page.waitForSelector("dialog[open]", { timeout: 8000 }).catch(() => {});
+        await page.waitForTimeout(800);
+      }
+      if (shot.action === "newQuest") {
+        await page.click('button:has-text("New Quest")').catch(() => {});
+        await page.waitForSelector("dialog[open]", { timeout: 8000 }).catch(() => {});
+        // Turn on the repeat toggle so the frequency options are visible in the shot.
+        await page.click('button[aria-label="Schedule this quest"]').catch(() => {});
+        await page.waitForTimeout(500);
+      }
+      if (shot.action === "completeAdventure") {
+        await page.click('button:has-text("Complete Adventure")').catch(() => {});
         await page.waitForTimeout(800);
       }
 

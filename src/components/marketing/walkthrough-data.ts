@@ -46,7 +46,7 @@ const SHOT_H = 800;
 // Screenshots live in a versioned folder (see scripts/capture-screens.mjs). The
 // version is part of the path so re-captures get a fresh URL and never serve a
 // stale, cached optimized image. Bump SCREENS_REV when re-running the capture.
-export const SCREENS_REV = "r2";
+export const SCREENS_REV = "r3";
 const shot = (name: string, alt: string, w = SHOT_W, h = SHOT_H) => ({
   src: `/marketing/screens/${SCREENS_REV}/${name}.jpg`,
   alt,
@@ -123,21 +123,39 @@ export const WALKTHROUGH: Record<
         ],
       },
       {
+        id: "parent-schedule",
+        routeLabel: "Weekly Schedule",
+        path: "/schedule",
+        icon: "calendar",
+        title: "Build the weekly schedule",
+        summary:
+          "Lay out each hero's class blocks by day — quests can then follow the same school days automatically.",
+        screenshot: shot(
+          "parent-schedule",
+          "The Weekly Schedule page showing each day's classes with subjects, times, and a School Day toggle",
+        ),
+        callouts: [
+          { n: 1, label: "Class blocks", body: "Add each subject to a day with a start and end time, color-coded to match its subject." },
+          { n: 2, label: "Copy a day", body: "Build out the whole week fast by copying one day's schedule to another." },
+          { n: 3, label: "Mark days off", body: "Toggle any day between School Day and off for weekends, holidays, or breaks." },
+        ],
+      },
+      {
         id: "parent-quest-giver",
         routeLabel: "Quest Giver",
         path: "/scrolls",
         icon: "mage",
         title: "Turn lessons into quests",
         summary:
-          "Build a library of reusable quest scrolls — the lessons and chores you'll assign again and again.",
+          "Build a library of reusable quest scrolls — the lessons and chores you'll assign again and again, on whatever schedule fits.",
         screenshot: shot(
-          "parent-quest-giver",
-          "The Quest Giver page listing reusable quest templates per subject",
+          "parent-new-quest",
+          "The New Quest form showing repeat frequency options and the Include in Learning Log toggle",
         ),
         callouts: [
-          { n: 1, label: "Quest scrolls", body: "Create quest templates by subject, with an estimate and description, ready to assign any day." },
-          { n: 2, label: "Rewards & loot", body: "Attach XP and unlockable avatar loot so finishing a quest actually feels like a win." },
-          { n: 3, label: "Per hero", body: "Switch between heroes to tailor each child's quest list to what they're studying." },
+          { n: 1, label: "Quest scrolls", body: "Create quest templates by subject, with a time estimate and description, ready to assign any day." },
+          { n: 2, label: "Set it and forget it", body: "Repeat a quest once, daily, weekly, or monthly, scoped to the hero's actual school days." },
+          { n: 3, label: "Learning log control", body: "Choose whether a quest counts toward the weekly learning log — handy for one-off chores that don't belong in your homeschool records." },
         ],
       },
       {
@@ -147,15 +165,15 @@ export const WALKTHROUGH: Record<
         icon: "tavern",
         title: "See your heroes at a glance",
         summary:
-          "The kingdom's home base — every hero's character, streak, and today's adventures in one view.",
+          "The kingdom's home base — every hero's character, streak, and what's coming up in one view.",
         screenshot: shot(
           "parent-tavern",
-          "The Tavern showing a hero's avatar, level, XP bar, streak, and recent activity",
+          "The Tavern showing a hero's avatar, level, XP bar, streak, and an Upcoming Quests list",
         ),
         callouts: [
           { n: 1, label: "Hero showcase", body: "Avatar, level, XP bar, and current streak for the selected hero — switch heroes with a tap." },
           { n: 2, label: "Start a quest", body: "Log what a hero studied today right from the Tavern, with a timer or a quick complete." },
-          { n: 3, label: "Recent Adventures", body: "A live feed of the latest logged learning across the family." },
+          { n: 3, label: "Upcoming Quests", body: "A combined look-ahead across every hero, so you can see what's coming before it's due." },
         ],
       },
       {
@@ -165,15 +183,16 @@ export const WALKTHROUGH: Record<
         icon: "scroll",
         title: "Assign, track, and record",
         summary:
-          "Hand out today's quests, watch them get completed, and let the app assemble your weekly learning log.",
+          "Hand out today's quests, then let the Complete Adventure tab write your weekly learning log for you.",
         screenshot: shot(
           "parent-quest-log",
-          "The Quest Log showing today's assigned quests and their completion status",
+          "The Complete Adventure tab showing a first-person weekly learning log, week navigation, and school calendar breaks",
         ),
         callouts: [
-          { n: 1, label: "Today's quests", body: "See each hero's assigned quests and mark them done as the day goes." },
-          { n: 2, label: "Adventure Log", body: "A running history of everything logged, grouped by subject." },
-          { n: 3, label: "Weekly recap", body: "The Complete Adventure tab generates an editable summary you can copy into records or a portfolio." },
+          { n: 1, label: "Today's quests", body: "The Today tab lists each hero's assigned quests, ready to mark done as the day goes." },
+          { n: 2, label: "Written like a journal", body: "Complete Adventure turns a finished week into a first-person summary — \"I completed…\" — ready to copy into records or a portfolio." },
+          { n: 3, label: "Week by week", body: "Step through past and future weeks to see any week's recap." },
+          { n: 4, label: "Mark your breaks", body: "Add school breaks so the calendar and week navigation skip them automatically." },
         ],
       },
       {

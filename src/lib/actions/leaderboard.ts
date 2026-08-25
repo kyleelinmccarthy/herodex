@@ -1,6 +1,6 @@
 "use server";
 
-import { eq, and, desc, sql, inArray } from "drizzle-orm";
+import { eq, and, desc, sql, inArray, isNull } from "drizzle-orm";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
@@ -24,7 +24,7 @@ export async function getFamilyLeaderboard() {
       )`,
     })
     .from(schema.child)
-    .where(inArray(schema.child.id, childIds))
+    .where(and(inArray(schema.child.id, childIds), isNull(schema.child.banishedAt)))
     .orderBy(desc(schema.child.currentXp));
 
   return children;
@@ -62,7 +62,7 @@ export async function getCommunityLeaderboard(
       })
       .from(schema.child)
       .leftJoin(schema.childBadge, eq(schema.child.id, schema.childBadge.childId))
-      .where(eq(schema.child.showOnLeaderboard, true))
+      .where(and(eq(schema.child.showOnLeaderboard, true), isNull(schema.child.banishedAt)))
       .groupBy(schema.child.id)
       .orderBy(sql`count(${schema.childBadge.id}) DESC`)
       .limit(50);
@@ -82,7 +82,7 @@ export async function getCommunityLeaderboard(
       value: orderColumn!,
     })
     .from(schema.child)
-    .where(eq(schema.child.showOnLeaderboard, true))
+    .where(and(eq(schema.child.showOnLeaderboard, true), isNull(schema.child.banishedAt)))
     .orderBy(desc(orderColumn!))
     .limit(50);
 
@@ -118,7 +118,7 @@ export async function getCommunityLeaderboardAll(): Promise<CommunityLeaderboard
     })
     .from(schema.child)
     .leftJoin(schema.childBadge, eq(schema.child.id, schema.childBadge.childId))
-    .where(eq(schema.child.showOnLeaderboard, true))
+    .where(and(eq(schema.child.showOnLeaderboard, true), isNull(schema.child.banishedAt)))
     .groupBy(schema.child.id)
     .orderBy(desc(schema.child.currentXp))
     .limit(50);

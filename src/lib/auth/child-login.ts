@@ -1,5 +1,5 @@
 import { randomInt } from "crypto";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { getActor } from "@/lib/auth/actor";
@@ -48,8 +48,12 @@ export async function heroesForFamily(
     .from(schema.child)
     .where(
       requirePin
-        ? and(eq(schema.child.familyId, familyId), eq(schema.child.pinEnabled, true))
-        : eq(schema.child.familyId, familyId)
+        ? and(
+            eq(schema.child.familyId, familyId),
+            eq(schema.child.pinEnabled, true),
+            isNull(schema.child.banishedAt)
+          )
+        : and(eq(schema.child.familyId, familyId), isNull(schema.child.banishedAt))
     );
   return rows;
 }

@@ -32,7 +32,13 @@ import { ChildLoginAccess } from "./child-login-access";
 import { SendHeroEmailButton } from "./send-hero-email";
 import { AgeInput, type AgeMode } from "./age-input";
 import { GameIcon } from "@/components/game-icon";
-import { createChild, updateChild, deleteChild } from "@/lib/actions/children";
+import {
+  createChild,
+  updateChild,
+  banishChild,
+  restoreChild,
+  deleteChild,
+} from "@/lib/actions/children";
 import {
   setChildEmail,
   setChildAuthMethod,
@@ -60,6 +66,14 @@ type Subject = {
   icon: string | null;
   isRequired: boolean;
   isActive: boolean;
+};
+
+export type BanishedHero = {
+  id: string;
+  displayName: string;
+  avatarConfig: string | null;
+  /** ISO timestamp of the banishment. */
+  banishedAt: string | null;
 };
 
 type Child = {
@@ -107,11 +121,13 @@ const SUBJECT_COLORS = [
 export function ChildList({
   family,
   kids,
+  banished = [],
   isChildView = false,
   currentChildId = null,
 }: {
   family: Family;
   kids: Child[];
+  banished?: BanishedHero[];
   isChildView?: boolean;
   currentChildId?: string | null;
 }) {
@@ -159,8 +175,152 @@ export function ChildList({
       {expandedChild && (
         <ChildDetail child={expandedChild} isChildView={isChildView} />
       )}
+
+      {!isChildView && banished.length > 0 && <BanishedHeroes heroes={banished} />}
     </>
   );
+}
+
+/**
+ * Recovery for banished heroes. A banishment is a soft delete, so everything
+ * they earned is still here — a parent can summon them back at any time, or
+ * choose to erase them for good.
+ */
+function BanishedHeroes({ heroes }: { heroes: BanishedHero[] }) {
+  return (
+    <GameFrame
+      title="Banished Heroes"
+      icon={<GameIcon name="door" className="size-4 text-[var(--gold-bright)]" />}
+    >
+      <p className="mb-3 text-sm text-muted-foreground">
+        These heroes have left the realm. Their quests, chronicles, and treasures are
+        kept safe — summon them back whenever you like.
+      </p>
+      <div className="space-y-3">
+        {heroes.map((hero) => (
+          <BanishedHeroRow key={hero.id} hero={hero} />
+        ))}
+      </div>
+    </GameFrame>
+  );
+}
+
+function BanishedHeroRow({ hero }: { hero: BanishedHero }) {
+  const router = useRouter();
+  const [restoring, setRestoring] = useState(false);
+  const [confirmErase, setConfirmErase] = useState(false);
+  const [erasing, setErasing] = useState(false);
+  const [typedName, setTypedName] = useState("");
+  const [error, setError] = useState("");
+
+  const busy = restoring || erasing;
+
+  async function handleRestore() {
+    setRestoring(true);
+    setError("");
+    try {
+      await restoreChild(hero.id);
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not summon this hero back.");
+    } finally {
+      setRestoring(false);
+    }
+  }
+
+  async function handleErase() {
+    setErasing(true);
+    setError("");
+    try {
+      await deleteChild(hero.id);
+      setConfirmErase(false);
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not remove this hero.");
+    } finally {
+      setErasing(false);
+    }
+  }
+
+  return (
+    <div className="rounded-lg border border-gold-dim bg-secondary/30 p-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3 opacity-70">
+          <Avatar
+            config={hero.avatarConfig ? JSON.parse(hero.avatarConfig) as AvatarConfig : null}
+            name={hero.displayName}
+            size="sm"
+          />
+          <div>
+            <p className="font-medium">{hero.displayName}</p>
+            <p className="text-sm text-muted-foreground">
+              Banished{hero.banishedAt ? ` ${formatBanishDate(hero.banishedAt)}` : ""}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button size="sm" onClick={handleRestore} disabled={busy}>
+            {restoring ? "Summoning..." : "Summon Back"}
+          </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => {
+              setTypedName("");
+              setError("");
+              setConfirmErase(true);
+            }}
+            disabled={busy}
+          >
+            Erase Forever
+          </Button>
+        </div>
+      </div>
+      {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
+
+      <Dialog open={confirmErase} onClose={() => !erasing && setConfirmErase(false)}>
+        <DialogHeader>
+          <DialogTitle>Erase {hero.displayName} forever?</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 text-sm">
+          <p className="text-muted-foreground">
+            This permanently deletes {hero.displayName} along with every quest, chronicle,
+            trophy, and log they earned. It cannot be undone.
+          </p>
+          <div className="space-y-1.5">
+            <Label htmlFor={`erase-${hero.id}`}>
+              Type <span className="font-semibold text-foreground">{hero.displayName}</span> to confirm
+            </Label>
+            <Input
+              id={`erase-${hero.id}`}
+              value={typedName}
+              onChange={(e) => setTypedName(e.target.value)}
+              autoComplete="off"
+            />
+          </div>
+          {error && <p className="text-destructive">{error}</p>}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setConfirmErase(false)} disabled={erasing}>
+            Cancel
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={handleErase}
+            disabled={erasing || typedName.trim() !== hero.displayName}
+          >
+            {erasing ? "Erasing..." : "Erase Forever"}
+          </Button>
+        </DialogFooter>
+      </Dialog>
+    </div>
+  );
+}
+
+function formatBanishDate(iso: string) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
 function ChildSummaryCard({
@@ -222,16 +382,21 @@ function ChildSummaryCard({
 
 function ChildDetail({ child, isChildView = false }: { child: Child; isChildView?: boolean }) {
   const router = useRouter();
-  const [deleting, setDeleting] = useState(false);
+  const [confirmBanish, setConfirmBanish] = useState(false);
+  const [banishing, setBanishing] = useState(false);
+  const [banishError, setBanishError] = useState("");
 
-  async function handleDelete() {
-    if (!confirm(`Banish ${child.displayName} and all their chronicles from the realm?`)) return;
-    setDeleting(true);
+  async function handleBanish() {
+    setBanishing(true);
+    setBanishError("");
     try {
-      await deleteChild(child.id);
+      await banishChild(child.id);
+      setConfirmBanish(false);
       router.refresh();
+    } catch (e) {
+      setBanishError(e instanceof Error ? e.message : "Could not banish this hero.");
     } finally {
-      setDeleting(false);
+      setBanishing(false);
     }
   }
 
@@ -268,14 +433,48 @@ function ChildDetail({ child, isChildView = false }: { child: Child; isChildView
             <Button
               variant="destructive"
               size="sm"
-              onClick={handleDelete}
-              disabled={deleting}
+              onClick={() => {
+                setBanishError("");
+                setConfirmBanish(true);
+              }}
+              disabled={banishing}
             >
-              {deleting ? "Banishing..." : "Banish Hero"}
+              {banishing ? "Banishing..." : "Banish Hero"}
             </Button>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Banishing hides this hero from the realm. Nothing is deleted — you can
+              summon them back from Banished Heroes.
+            </p>
           </div>
         )}
       </div>
+
+      <Dialog open={confirmBanish} onClose={() => !banishing && setConfirmBanish(false)}>
+        <DialogHeader>
+          <DialogTitle>Banish {child.displayName}?</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 text-sm text-muted-foreground">
+          <p>
+            {child.displayName} will vanish from the realm — no quests, no logins, no
+            leaderboards.
+          </p>
+          <p>
+            Nothing is deleted. Their chronicles, trophies, and treasures are kept safe,
+            and you can summon them back from{" "}
+            <span className="font-semibold text-foreground">Banished Heroes</span> at any
+            time.
+          </p>
+          {banishError && <p className="text-destructive">{banishError}</p>}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setConfirmBanish(false)} disabled={banishing}>
+            Keep Hero
+          </Button>
+          <Button variant="destructive" onClick={handleBanish} disabled={banishing}>
+            {banishing ? "Banishing..." : "Banish Hero"}
+          </Button>
+        </DialogFooter>
+      </Dialog>
     </GameFrame>
   );
 }
@@ -438,7 +637,7 @@ function SubjectManager({ childId, subjects }: { childId: string; subjects: Subj
             <Input
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
-              placeholder="Bardic Arts"
+              placeholder="e.g. Mathematics"
               required
             />
           </div>
@@ -1027,15 +1226,15 @@ function SchoolingModeSettings({
         {expanded ? "Hide" : "Customize"} by day
       </button>
       {expanded && (
-        <div className="grid grid-cols-2 gap-2 rounded-lg border border-gold-dim bg-muted/20 p-3 sm:grid-cols-3">
+        <div className="divide-y divide-[var(--gold-dim)] rounded-lg border border-gold-dim bg-muted/20">
           {DAYS_OF_WEEK.map((day) => (
-            <div key={day} className="flex items-center justify-between gap-2">
+            <div key={day} className="flex items-center justify-between gap-3 px-3 py-2">
               <Label className="text-xs">{DAY_LABELS[day]}</Label>
               <Select
                 value={overrides[day] ?? "default"}
                 onChange={(e) => handleOverrideChange(day, e.target.value as SchoolingMode | "default")}
                 disabled={saving}
-                className="h-7 w-28 text-xs"
+                className="h-8 w-40 text-xs"
               >
                 <option value="default">(use default)</option>
                 <option value="unstructured">Unstructured</option>

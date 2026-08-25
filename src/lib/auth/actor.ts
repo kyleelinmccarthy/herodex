@@ -1,6 +1,6 @@
 import { cache } from "react";
 import { headers, cookies } from "next/headers";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
@@ -29,7 +29,7 @@ async function childActorById(childId: string): Promise<Actor> {
   const rows = await db
     .select({ id: schema.child.id, familyId: schema.child.familyId })
     .from(schema.child)
-    .where(eq(schema.child.id, childId))
+    .where(and(eq(schema.child.id, childId), isNull(schema.child.banishedAt)))
     .limit(1);
   if (!rows[0]) return null;
   return { kind: "child", childId: rows[0].id, familyId: rows[0].familyId };
@@ -65,7 +65,8 @@ export const getActor = cache(async function getActor(): Promise<Actor> {
         pinEnabled: schema.child.pinEnabled,
       })
       .from(schema.child)
-      .where(eq(schema.child.id, payload.childId))
+      // A banished hero's live session stops resolving immediately.
+      .where(and(eq(schema.child.id, payload.childId), isNull(schema.child.banishedAt)))
       .limit(1);
     if (rows[0] && rows[0].pinEnabled) {
       return { kind: "child", childId: rows[0].id, familyId: rows[0].familyId };
@@ -78,11 +79,19 @@ export const getActor = cache(async function getActor(): Promise<Actor> {
     const linked = await db
       .select({ id: schema.child.id, familyId: schema.child.familyId })
       .from(schema.child)
-      .where(eq(schema.child.authUserId, session.user.id))
+      .where(and(eq(schema.child.authUserId, session.user.id), isNull(schema.child.banishedAt)))
       .limit(1);
     if (linked[0]) {
       return { kind: "child", childId: linked[0].id, familyId: linked[0].familyId };
     }
+    // A user linked ONLY to a banished hero is nobody — never silently
+    // promoted to an adult actor with the family's grown-up powers.
+    const banished = await db
+      .select({ id: schema.child.id })
+      .from(schema.child)
+      .where(eq(schema.child.authUserId, session.user.id))
+      .limit(1);
+    if (banished[0]) return null;
     return { kind: "adult", userId: session.user.id };
   }
 

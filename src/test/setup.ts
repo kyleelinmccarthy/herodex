@@ -20,3 +20,13 @@ if (typeof HTMLDialogElement !== "undefined") {
     };
   }
 }
+
+// jsdom has no ResizeObserver either. GameNavBar uses one to publish its
+// measured height as --game-navbar-height; stub it so mounting doesn't throw.
+if (typeof globalThis.ResizeObserver === "undefined") {
+  globalThis.ResizeObserver = class ResizeObserver {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  } as unknown as typeof ResizeObserver;
+}

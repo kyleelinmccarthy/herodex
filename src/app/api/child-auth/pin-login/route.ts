@@ -56,11 +56,13 @@ export async function POST(request: NextRequest) {
       familyId: schema.child.familyId,
       pinHash: schema.child.pinHash,
       pinEnabled: schema.child.pinEnabled,
+      banishedAt: schema.child.banishedAt,
     })
     .from(schema.child)
     .where(eq(schema.child.id, childId))
     .limit(1);
-  const child = rows[0];
+  // A banished hero can no longer sign in — treated as if they do not exist.
+  const child = rows[0]?.banishedAt ? undefined : rows[0];
 
   // Hand-off (no family code) means this request is already backed by a
   // signed-in parent's session — see resolveFamilyForPinLogin. A child with

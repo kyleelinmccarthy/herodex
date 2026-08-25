@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -61,12 +62,35 @@ export function GameBanner() {
 
 export function GameNavBar({ userName, isChildView }: { userName: string; isChildView?: boolean }) {
   const pathname = usePathname();
+  const navRef = useRef<HTMLElement | null>(null);
 
   const navItems = navItemsFor(isChildView);
 
+  // Publish the bar's real height as --game-navbar-height so floating controls
+  // (the hero hand-off button, the demo switcher) can dock above it instead of
+  // landing on top of the Help/account medallions. The height changes with the
+  // breakpoint and with font loading, so measure rather than hard-code it.
+  useEffect(() => {
+    const el = navRef.current;
+    if (!el) return;
+    const publish = () => {
+      document.documentElement.style.setProperty(
+        "--game-navbar-height",
+        `${el.getBoundingClientRect().height}px`,
+      );
+    };
+    publish();
+    const observer = new ResizeObserver(publish);
+    observer.observe(el);
+    // Deliberately leaves the last measured value in place: during a route
+    // transition the outgoing bar can unmount after the incoming one mounts,
+    // and clearing here would drop the fresh value back to the CSS fallback.
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <TooltipProvider>
-      <nav className="game-navbar">
+      <nav className="game-navbar" ref={navRef}>
         <div className="game-navbar-inner">
           <div className="game-navbar-corner game-navbar-corner--tl" />
           <div className="game-navbar-corner game-navbar-corner--tr" />

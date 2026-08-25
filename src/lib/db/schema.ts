@@ -205,6 +205,10 @@ export const child = sqliteTable(
     // Sparse JSON map of weekday -> mode, e.g. {"fri":"unstructured"}. Only days
     // with an explicit override are present; absent days fall back to schoolingMode.
     schoolingModeOverrides: text("schooling_mode_overrides"),
+    // Soft delete ("banished"). Non-null hides the hero everywhere — lists,
+    // logins, leaderboards — but keeps every row intact so a parent can
+    // restore them. Permanent removal is a separate, explicit action.
+    banishedAt: integer("banished_at", { mode: "timestamp" }),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   },

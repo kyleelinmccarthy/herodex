@@ -14,6 +14,7 @@ import {
   createScheduleBlock,
   deleteScheduleBlock,
   setSchoolDays,
+  updateScheduleBlock,
 } from "@/lib/actions/student-schedule";
 import {
   DAYS_OF_WEEK,
@@ -200,6 +201,7 @@ function DayRow({
 }) {
   const router = useRouter();
   const [mode, setMode] = useState<"none" | "add" | "copy">("none");
+  const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const sorted = [...blocks].sort((a, b) => a.startTime.localeCompare(b.startTime));
   const otherDays = DAYS_OF_WEEK.filter((d) => d !== day).map((d) => ({
@@ -214,6 +216,19 @@ function DayRow({
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to remove class");
     }
+  }
+
+  /** Only one form is open at a time, so an in-progress edit is never silently discarded. */
+  function startEditing(blockId: string) {
+    setMode("none");
+    setEditingBlockId(blockId);
+    setError("");
+  }
+
+  function startMode(next: "add" | "copy") {
+    setEditingBlockId(null);
+    setMode(next);
+    setError("");
   }
 
   return (
@@ -282,6 +297,20 @@ function DayRow({
           )}
           {sorted.map((block) => {
             const subject = subjects.find((s) => s.id === block.subjectId);
+            if (editingBlockId === block.id) {
+              return (
+                <BlockForm
+                  key={block.id}
+                  childId={childId}
+                  day={day}
+                  subjects={subjects}
+                  block={block}
+                  existingBlocks={sorted.filter((b) => b.id !== block.id)}
+                  onDone={() => setEditingBlockId(null)}
+                  onError={setError}
+                />
+              );
+            }
             return (
               <div
                 key={block.id}
@@ -296,14 +325,38 @@ function DayRow({
                   {formatTimeOfDay(block.startTime)}&ndash;{formatTimeOfDay(block.endTime)}
                 </span>
                 {canEdit && (
-                  <Button
-                    size="xs"
-                    variant="ghost"
-                    className="text-muted-foreground hover:text-destructive"
-                    onClick={() => handleRemove(block.id)}
-                  >
-                    ×
-                  </Button>
+                  <>
+                    <Button
+                      size="xs"
+                      variant="ghost"
+                      className="text-muted-foreground hover:text-foreground"
+                      onClick={() => startEditing(block.id)}
+                      aria-label={`Edit ${subject?.name ?? "class"} on ${DAY_LABELS[day]}`}
+                    >
+                      <svg
+                        className="size-3.5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={2}
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"
+                        />
+                      </svg>
+                    </Button>
+                    <Button
+                      size="xs"
+                      variant="ghost"
+                      className="text-muted-foreground hover:text-destructive"
+                      onClick={() => handleRemove(block.id)}
+                      aria-label={`Remove ${subject?.name ?? "class"} from ${DAY_LABELS[day]}`}
+                    >
+                      ×
+                    </Button>
+                  </>
                 )}
               </div>
             );
@@ -312,7 +365,7 @@ function DayRow({
           {canEdit && (
             <>
               {mode === "add" && (
-                <AddBlockForm
+                <BlockForm
                   childId={childId}
                   day={day}
                   subjects={subjects}
@@ -330,12 +383,12 @@ function DayRow({
                   onError={setError}
                 />
               )}
-              {mode === "none" && (
+              {mode === "none" && editingBlockId === null && (
                 <div className="flex gap-2">
-                  <Button size="sm" variant="outline" onClick={() => setMode("add")}>
+                  <Button size="sm" variant="outline" onClick={() => startMode("add")}>
                     + Add Class
                   </Button>
-                  <Button size="sm" variant="outline" onClick={() => setMode("copy")}>
+                  <Button size="sm" variant="outline" onClick={() => startMode("copy")}>
                     Copy Day
                   </Button>
                 </div>
@@ -348,11 +401,16 @@ function DayRow({
   );
 }
 
-function AddBlockForm({
+/**
+ * Adds a class, or edits one in place when `block` is given. In edit mode `existingBlocks`
+ * excludes the block being edited, so it never conflicts with its own time slot.
+ */
+function BlockForm({
   childId,
   day,
   subjects,
   existingBlocks,
+  block,
   onDone,
   onError,
 }: {
@@ -360,13 +418,19 @@ function AddBlockForm({
   day: DayOfWeek;
   subjects: Subject[];
   existingBlocks: Block[];
+  block?: Block;
   onDone: () => void;
   onError: (msg: string) => void;
 }) {
   const router = useRouter();
+  const isEditing = block !== undefined;
   const sortedSubjects = [...subjects].sort((a, b) => a.name.localeCompare(b.name));
-  const [subjectId, setSubjectId] = useState(sortedSubjects[0]?.id ?? "");
-  const [defaults] = useState(() => defaultTimeSlot(existingBlocks));
+  const [subjectId, setSubjectId] = useState(block?.subjectId ?? sortedSubjects[0]?.id ?? "");
+  const [defaults] = useState(() =>
+    block
+      ? { startTime: block.startTime, endTime: block.endTime }
+      : defaultTimeSlot(existingBlocks)
+  );
   const [startTime, setStartTime] = useState(defaults.startTime);
   const [endTime, setEndTime] = useState(defaults.endTime);
   const [saving, setSaving] = useState(false);
@@ -382,9 +446,10 @@ function AddBlockForm({
       return;
     }
     const alreadyScheduled = existingBlocks.some((b) => b.subjectId === subjectId);
-    if (alreadyScheduled) {
+    if (alreadyScheduled && subjectId !== block?.subjectId) {
       const subjectName = subjects.find((s) => s.id === subjectId)?.name ?? "This subject";
-      if (!confirm(`${subjectName} is already scheduled on ${DAY_LABELS[day]}. Add it again?`)) {
+      const verb = isEditing ? "Move this slot to it anyway?" : "Add it again?";
+      if (!confirm(`${subjectName} is already scheduled on ${DAY_LABELS[day]}. ${verb}`)) {
         return;
       }
     }
@@ -400,12 +465,17 @@ function AddBlockForm({
     setSaving(true);
     onError("");
     try {
-      await createScheduleBlock(childId, { subjectId, dayOfWeek: day, startTime, endTime });
-      writeLastTimeSlot(startTime, endTime);
+      if (block) {
+        await updateScheduleBlock(block.id, { subjectId, startTime, endTime });
+      } else {
+        await createScheduleBlock(childId, { subjectId, dayOfWeek: day, startTime, endTime });
+        writeLastTimeSlot(startTime, endTime);
+      }
       router.refresh();
       onDone();
     } catch (err) {
-      onError(err instanceof Error ? err.message : "Failed to add class");
+      const fallback = isEditing ? "Failed to update class" : "Failed to add class";
+      onError(err instanceof Error ? err.message : fallback);
     } finally {
       setSaving(false);
     }
@@ -435,7 +505,7 @@ function AddBlockForm({
       </div>
       <div className="flex gap-2">
         <Button size="sm" type="submit" disabled={saving}>
-          {saving ? "Adding..." : "Add"}
+          {saving ? (isEditing ? "Saving..." : "Adding...") : isEditing ? "Save" : "Add"}
         </Button>
         <Button size="sm" variant="ghost" type="button" onClick={onDone}>
           Cancel

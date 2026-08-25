@@ -1,6 +1,6 @@
 import { cache } from "react";
 import { cookies } from "next/headers";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, isNull } from "drizzle-orm";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { getSession } from "@/lib/auth/session";
@@ -176,17 +176,18 @@ export const getMemberships = cache(async function getMemberships(
   );
 });
 
-/** A child's owning family id. Memoized per request — requireChildAccess is
- *  invoked once per data action, repeatedly with the same childId on a page. */
-const getChildFamilyId = cache(async function getChildFamilyId(
+/** A child's owning family id and banishment state. Memoized per request —
+ *  requireChildAccess is invoked once per data action, repeatedly with the
+ *  same childId on a page. */
+const getChildRecord = cache(async function getChildRecord(
   childId: string,
-): Promise<string | null> {
+): Promise<{ familyId: string; banishedAt: Date | null } | null> {
   const rows = await db
-    .select({ familyId: schema.child.familyId })
+    .select({ familyId: schema.child.familyId, banishedAt: schema.child.banishedAt })
     .from(schema.child)
     .where(eq(schema.child.id, childId))
     .limit(1);
-  return rows[0]?.familyId ?? null;
+  return rows[0] ?? null;
 });
 
 /**
@@ -258,7 +259,7 @@ export async function requireFamilyReadAccess(familyId: string): Promise<FamilyA
  */
 export async function requireChildAccess(
   childId: string,
-  opts?: { write?: boolean }
+  opts?: { write?: boolean; allowBanished?: boolean }
 ): Promise<{ access: FamilyAccess; familyId: string }> {
   const actor = await getActor();
   if (!actor) throw new Error("Unauthorized");
@@ -272,8 +273,14 @@ export async function requireChildAccess(
   }
 
   // Adult: verify the child belongs to a family the user can access (+ scope).
-  const familyId = await getChildFamilyId(childId);
-  if (!familyId) throw new Error("Child not found.");
+  const record = await getChildRecord(childId);
+  if (!record) throw new Error("Child not found.");
+  const familyId = record.familyId;
+  // A banished hero is off-limits to every action except restore / permanent
+  // removal, which opt in explicitly.
+  if (record.banishedAt && !opts?.allowBanished) {
+    throw new Error("This hero has been banished. Restore them first.");
+  }
 
   const access = await requireFamilyAccess({ familyId, write: opts?.write });
 
@@ -421,30 +428,49 @@ export async function assertCanEditScheduleContent(
  * For scope === "all" this is every child in the family.
  */
 export async function accessibleChildIds(access: FamilyAccess): Promise<string[]> {
-  if (access.scope === "specific") {
-    return access.scopedChildIds ?? [];
-  }
   const rows = await db
     .select({ id: schema.child.id })
     .from(schema.child)
-    .where(eq(schema.child.familyId, access.familyId));
+    .where(childScopeFilter(access));
   return rows.map((r) => r.id);
+}
+
+/**
+ * Scope + banishment filter for the child table. Scoped members see only their
+ * granted heroes; banished heroes are hidden from everyone until restored
+ * (pass banished: true for the recovery list).
+ */
+function childScopeFilter(access: FamilyAccess, opts?: { banished?: boolean }) {
+  const banishFilter = opts?.banished
+    ? isNotNull(schema.child.banishedAt)
+    : isNull(schema.child.banishedAt);
+  if (access.scope === "specific") {
+    const ids = access.scopedChildIds ?? [];
+    // inArray([]) is invalid SQL — match nothing via an impossible id instead.
+    return and(
+      eq(schema.child.familyId, access.familyId),
+      inArray(schema.child.id, ids.length > 0 ? ids : ["__none__"]),
+      banishFilter
+    );
+  }
+  return and(eq(schema.child.familyId, access.familyId), banishFilter);
 }
 
 /** Convenience: children rows the member may view in their active family. */
 export async function accessibleChildren(access: FamilyAccess) {
-  if (access.scope === "specific") {
-    const ids = access.scopedChildIds ?? [];
-    if (ids.length === 0) return [];
-    return db
-      .select()
-      .from(schema.child)
-      .where(
-        and(eq(schema.child.familyId, access.familyId), inArray(schema.child.id, ids))
-      );
+  if (access.scope === "specific" && (access.scopedChildIds ?? []).length === 0) {
+    return [];
+  }
+  return db.select().from(schema.child).where(childScopeFilter(access));
+}
+
+/** Banished (soft-deleted) children the member may restore. */
+export async function banishedChildren(access: FamilyAccess) {
+  if (access.scope === "specific" && (access.scopedChildIds ?? []).length === 0) {
+    return [];
   }
   return db
     .select()
     .from(schema.child)
-    .where(eq(schema.child.familyId, access.familyId));
+    .where(childScopeFilter(access, { banished: true }));
 }

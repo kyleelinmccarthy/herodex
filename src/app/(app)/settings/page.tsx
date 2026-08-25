@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { getFamily, getFamilies } from "@/lib/actions/family";
+import { getBanishedChildren } from "@/lib/actions/children";
 import { resolveActiveChild } from "@/lib/actions/resolve-child";
 import { getSubjects } from "@/lib/actions/subjects";
 import { getChildBadges } from "@/lib/actions/badges";
@@ -42,6 +43,15 @@ export default async function SettingsPage() {
 
   // Adult-only management data.
   const families = !isChildView ? await getFamilies() : [];
+  // Soft-deleted heroes a parent can summon back (never shown to a child).
+  const banishedKids = family && !isChildView
+    ? (await getBanishedChildren()).map((c) => ({
+        id: c.id,
+        displayName: c.displayName,
+        avatarConfig: c.avatarConfig,
+        banishedAt: c.banishedAt ? c.banishedAt.toISOString() : null,
+      }))
+    : [];
   const guardianData = family && !isChildView ? await getFamilyMembers() : null;
   const loginCode =
     family && !isChildView && guardianData?.canManage
@@ -93,6 +103,7 @@ export default async function SettingsPage() {
           <ChildList
             family={family}
             kids={childrenWithSubjects}
+            banished={banishedKids}
             isChildView={isChildView}
             currentChildId={currentChildId}
           />

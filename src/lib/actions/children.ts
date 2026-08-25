@@ -8,6 +8,7 @@ import {
   requireFamilyAccess,
   requireChildAccess,
   accessibleChildren,
+  banishedChildren,
 } from "@/lib/auth/access";
 import { sanitizeName } from "@/lib/utils/sanitize";
 import { hashPin } from "@/lib/utils/pin";
@@ -39,6 +40,16 @@ function resolveAge(
 export async function getChildren() {
   const access = await requireFamilyAccess();
   return accessibleChildren(access);
+}
+
+/**
+ * Banished heroes a parent may restore (or remove for good). Only family-wide
+ * guardians can act on them, so scoped members are never shown the list.
+ */
+export async function getBanishedChildren() {
+  const access = await requireFamilyAccess();
+  if (access.scope === "specific") return [];
+  return banishedChildren(access);
 }
 
 export async function getChild(childId: string) {
@@ -147,8 +158,53 @@ export async function updateChild(childId: string, data: {
     .where(and(eq(schema.child.id, childId), eq(schema.child.familyId, familyId)));
 }
 
-export async function deleteChild(childId: string) {
+/**
+ * Banish a hero: a soft delete. Everything they own stays in the database and
+ * they simply stop appearing anywhere — lists, logins, leaderboards — until a
+ * parent restores them. Permanent removal is deleteChild().
+ */
+export async function banishChild(childId: string) {
   const access = await requireChildAccess(childId, { write: true });
+  if (access.access.scope === "specific") {
+    throw new Error("Only family-wide guardians can banish heroes.");
+  }
+
+  await db
+    .update(schema.child)
+    .set({ banishedAt: new Date(), updatedAt: new Date() })
+    .where(
+      and(eq(schema.child.id, childId), eq(schema.child.familyId, access.familyId))
+    );
+}
+
+/** Undo a banishment — the hero and all their chronicles return untouched. */
+export async function restoreChild(childId: string) {
+  const access = await requireChildAccess(childId, {
+    write: true,
+    allowBanished: true,
+  });
+  if (access.access.scope === "specific") {
+    throw new Error("Only family-wide guardians can restore heroes.");
+  }
+
+  await db
+    .update(schema.child)
+    .set({ banishedAt: null, updatedAt: new Date() })
+    .where(
+      and(eq(schema.child.id, childId), eq(schema.child.familyId, access.familyId))
+    );
+}
+
+/**
+ * Permanently erase a banished hero and everything they own. Irreversible —
+ * only reachable from the banished list, so a hero is always banished (and
+ * recoverable) first.
+ */
+export async function deleteChild(childId: string) {
+  const access = await requireChildAccess(childId, {
+    write: true,
+    allowBanished: true,
+  });
   if (access.access.scope === "specific") {
     throw new Error("Only family-wide guardians can remove heroes.");
   }
@@ -156,10 +212,18 @@ export async function deleteChild(childId: string) {
   // Capture any linked Better Auth account so we can remove it too — otherwise
   // it would survive as an orphan login (authUserId is set-null on delete).
   const rows = await db
-    .select({ authUserId: schema.child.authUserId })
+    .select({
+      authUserId: schema.child.authUserId,
+      banishedAt: schema.child.banishedAt,
+    })
     .from(schema.child)
     .where(and(eq(schema.child.id, childId), eq(schema.child.familyId, access.familyId)))
     .limit(1);
+
+  if (!rows[0]) throw new Error("Child not found.");
+  if (!rows[0].banishedAt) {
+    throw new Error("Banish this hero first — then they can be removed for good.");
+  }
 
   await db
     .delete(schema.child)
@@ -167,7 +231,7 @@ export async function deleteChild(childId: string) {
       and(eq(schema.child.id, childId), eq(schema.child.familyId, access.familyId))
     );
 
-  const authUserId = rows[0]?.authUserId;
+  const authUserId = rows[0].authUserId;
   if (authUserId) {
     // Deleting the user cascades its sessions/accounts.
     await db.delete(schema.user).where(eq(schema.user.id, authUserId));

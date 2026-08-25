@@ -24,7 +24,13 @@ export async function tryLinkChildForUser(user: {
   const rows = await db
     .select()
     .from(schema.child)
-    .where(and(eq(schema.child.email, email), isNull(schema.child.authUserId)))
+    .where(
+      and(
+        eq(schema.child.email, email),
+        isNull(schema.child.authUserId),
+        isNull(schema.child.banishedAt)
+      )
+    )
     .limit(1);
   const candidate = rows[0];
   if (!candidate) return;

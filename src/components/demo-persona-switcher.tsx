@@ -29,7 +29,7 @@ export function DemoPersonaSwitcher({ current }: { current: DemoPersona }) {
   }
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 flex flex-col items-end gap-2">
+    <div className="floating-dock flex flex-col items-end gap-2">
       {/* Expanded persona list */}
       {open && (
         <div className="flex flex-col gap-1 rounded-xl border border-amber-500/30 bg-background/95 p-2 shadow-lg backdrop-blur-sm">

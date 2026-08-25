@@ -2,7 +2,7 @@
 
 import { nanoid } from "nanoid";
 import { cookies } from "next/headers";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
@@ -105,7 +105,9 @@ export async function inviteGuardian(data: {
     const valid = await db
       .select({ id: schema.child.id })
       .from(schema.child)
-      .where(eq(schema.child.familyId, access.familyId));
+      .where(
+        and(eq(schema.child.familyId, access.familyId), isNull(schema.child.banishedAt))
+      );
     const validSet = new Set(valid.map((c) => c.id));
     if (!childIds.every((id) => validSet.has(id))) {
       throw new Error("One or more selected heroes are not in this family.");

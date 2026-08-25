@@ -37,9 +37,10 @@ const HOW_IT_WORKS: {
 ];
 
 const FEATURES: { icon: GameIconName; title: string; body: string }[] = [
-  { icon: "scroll", title: "Quests & XP", body: "Turn daily lessons into quests with rewards that keep students motivated." },
+  { icon: "scroll", title: "Quests & XP", body: "Turn daily lessons into quests — repeating once, daily, weekly, or monthly — with rewards that keep students motivated." },
+  { icon: "calendar", title: "Weekly schedule", body: "Lay out each hero's class schedule by day, and quests follow their actual school days." },
   { icon: "gem", title: "Loot & heroes", body: "Heroes unlock outfits, companions, and castles as they level up." },
-  { icon: "book", title: "Weekly recaps", body: "Auto-generated learning logs for record-keeping and reviews." },
+  { icon: "book", title: "Weekly recaps", body: "Auto-generated, first-person learning logs for record-keeping and reviews." },
   { icon: "trophy", title: "Ranks", body: "A family hall of legends — plus an opt-in community leaderboard." },
   { icon: "shield", title: "Multiple guardians", body: "Invite a co-parent, tutor, or teacher with view-only or edit access." },
   { icon: "key", title: "Student-safe sign-in", body: "Students sign in with a simple PIN or a login you set up for them." },

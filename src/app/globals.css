@@ -341,6 +341,22 @@ html { scrollbar-color: var(--border) var(--background); }
     padding: 0 2rem calc(env(safe-area-inset-bottom));
   }
 }
+/* Fallback until GameNavBar measures itself and overwrites this on <html>
+   (see the ResizeObserver in game-nav.tsx). Compact stacked medallions below
+   768px, the roomier row layout at and above it. */
+:root { --game-navbar-height: 5.5rem; }
+@media (min-width: 768px) {
+  :root { --game-navbar-height: 5rem; }
+}
+/* Floating controls anchored to the bottom-right corner. They sit clear of the
+   navbar at every width — at narrow sizes the bar reaches the right edge, so a
+   plain `bottom: 1rem` would land on the Help / account medallions. */
+.floating-dock {
+  position: fixed;
+  right: 1rem;
+  bottom: calc(var(--game-navbar-height) + 0.75rem);
+  z-index: 50;
+}
 .game-navbar-inner {
   position: relative;
   display: flex;
