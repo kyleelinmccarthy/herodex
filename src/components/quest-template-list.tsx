@@ -22,6 +22,7 @@ type Quest = {
   rewardXp: number | null;
   rewardDescription: string | null;
   rewardAvatarItem: string | null;
+  includeInLearningLog: boolean;
 };
 
 type Schedule = {

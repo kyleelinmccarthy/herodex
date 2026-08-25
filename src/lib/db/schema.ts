@@ -465,6 +465,9 @@ export const quest = sqliteTable(
     rewardDescription: text("reward_description"),
     rewardAvatarItem: text("reward_avatar_item"), // JSON: { category, itemId }
     isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+    includeInLearningLog: integer("include_in_learning_log", { mode: "boolean" })
+      .notNull()
+      .default(true),
     sortOrder: integer("sort_order").notNull().default(0),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),

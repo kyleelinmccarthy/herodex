@@ -92,6 +92,13 @@
       "when": 1787244499570,
       "tag": "0012_silky_frightful_four",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1787616155442,
+      "tag": "0013_plain_tattoo",
+      "breakpoints": true
     }
   ]
 }

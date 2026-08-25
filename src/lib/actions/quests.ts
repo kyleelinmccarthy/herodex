@@ -43,6 +43,7 @@ export async function createQuest(data: {
   rewardXp?: number;
   rewardDescription?: string;
   rewardAvatarItem?: string; // JSON: { category, itemId }
+  includeInLearningLog?: boolean;
   schedule?: {
     frequency: "once" | "daily" | "weekly" | "monthly";
     daysOfWeek?: string[];
@@ -74,6 +75,7 @@ export async function createQuest(data: {
     rewardDescription: data.rewardDescription ? sanitizeText(data.rewardDescription, 500) : null,
     rewardAvatarItem: data.rewardAvatarItem ?? null,
     isActive: true,
+    includeInLearningLog: data.includeInLearningLog ?? true,
     sortOrder: maxSort + 1,
     createdAt: now,
     updatedAt: now,
@@ -104,6 +106,7 @@ export async function updateQuest(
     subjectId?: string;
     estimatedMinutes?: number;
     isActive?: boolean;
+    includeInLearningLog?: boolean;
     rewardXp?: number | null;
     rewardDescription?: string | null;
     rewardAvatarItem?: string | null;
@@ -117,6 +120,8 @@ export async function updateQuest(
   if (data.subjectId) updates.subjectId = data.subjectId;
   if (data.estimatedMinutes !== undefined) updates.estimatedMinutes = data.estimatedMinutes;
   if (data.isActive !== undefined) updates.isActive = data.isActive;
+  if (data.includeInLearningLog !== undefined)
+    updates.includeInLearningLog = data.includeInLearningLog;
   if (data.rewardXp !== undefined) updates.rewardXp = data.rewardXp;
   if (data.rewardDescription !== undefined)
     updates.rewardDescription = data.rewardDescription ? sanitizeText(data.rewardDescription, 500) : null;

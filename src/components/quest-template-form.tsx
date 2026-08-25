@@ -36,6 +36,7 @@ type QuestData = {
   rewardXp: number | null;
   rewardDescription: string | null;
   rewardAvatarItem: string | null;
+  includeInLearningLog?: boolean;
 };
 
 type ScheduleData = {
@@ -90,6 +91,9 @@ export function QuestTemplateForm({
   const [showRewards, setShowRewards] = useState(
     !!(quest?.rewardXp || quest?.rewardDescription || quest?.rewardAvatarItem)
   );
+  const [includeInLearningLog, setIncludeInLearningLog] = useState(
+    quest?.includeInLearningLog ?? true
+  );
   const defaultRepeatStartDate = schedule?.startDate ?? new Date().toISOString().slice(0, 10);
   const [repeatEnabled, setRepeatEnabled] = useState(!!schedule);
   const [repeatFrequency, setRepeatFrequency] = useState<RepeatFrequency>(
@@ -120,6 +124,7 @@ export function QuestTemplateForm({
     setRewardDescription("");
     setRewardAvatarItem("");
     setShowRewards(false);
+    setIncludeInLearningLog(true);
     setRepeatEnabled(false);
     setRepeatFrequency("once");
     setRepeatDays(defaultRepeatDaysForStartDate(today, schoolDays));
@@ -188,6 +193,7 @@ export function QuestTemplateForm({
           rewardXp: rewardXp ? parseInt(rewardXp) : null,
           rewardDescription: rewardDescription || null,
           rewardAvatarItem: rewardAvatarItem || null,
+          includeInLearningLog,
         });
 
         if (schedulePayload) {
@@ -203,6 +209,7 @@ export function QuestTemplateForm({
           description: description || undefined,
           estimatedMinutes: estimatedMinutes ? parseInt(estimatedMinutes) : undefined,
           ...rewardFields,
+          includeInLearningLog,
           schedule: schedulePayload,
         });
       }
@@ -267,6 +274,19 @@ export function QuestTemplateForm({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="e.g. Complete exercises 1-10, review vocabulary"
+            />
+          </div>
+          <div className="flex items-center justify-between rounded-lg border border-dashed border-border p-3">
+            <div className="space-y-0.5">
+              <Label htmlFor="quest-learning-log">Include in learning log</Label>
+              <p className="text-[10px] text-muted-foreground">
+                Completed assignments for this quest appear in the weekly learning log
+              </p>
+            </div>
+            <Switch
+              checked={includeInLearningLog}
+              onCheckedChange={() => setIncludeInLearningLog((v) => !v)}
+              aria-label="Include in learning log"
             />
           </div>
 

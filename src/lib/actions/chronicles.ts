@@ -44,6 +44,7 @@ export async function generateLearningLog(
   // Merge duration data into assignment rows
   const enriched = assignments
     .filter((a) => a.assignment.status !== "pending")
+    .filter((a) => a.quest.includeInLearningLog)
     .map((a) => ({
       ...a,
       durationMinutes: a.assignment.activityLogId
