@@ -47,7 +47,7 @@ afterEach(cleanup);
 
 const baseData = {
   assignment: { id: "qa1", status: "pending", notes: null },
-  quest: { id: "q1", title: "Read Chapter 5", description: "Pages 50-75", estimatedMinutes: 30, rewardXp: null, rewardDescription: null, rewardAvatarItem: null },
+  quest: { id: "q1", title: "Read Chapter 5", description: "Pages 50-75", estimatedMinutes: 30, rewardXp: null, rewardDescription: null, rewardAvatarItem: null, requireNotes: false },
   subject: { id: "s1", name: "Math", color: "#ef4444" },
 };
 

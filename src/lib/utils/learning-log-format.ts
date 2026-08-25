@@ -48,6 +48,56 @@ const CONTINUATIONS = [
   "I further completed",
 ];
 
+// Leading instructions like "Login to X and ..." describe how to reach the
+// assignment, not what was done — drop them so the sentence reads naturally
+// after "I completed ...".
+const ACCESS_CLAUSE_RE = /^(?:log\s*in|sign\s*in|go)\s+to\s+.+?\s+and\s+/i;
+
+// Verbs that only restate "I completed", e.g. "Complete Science lessons"
+// would otherwise read "I completed Complete Science lessons".
+const REDUNDANT_LEAD_VERBS = [
+  "log\\s*in to",
+  "sign\\s*in to",
+  "go to",
+  "complete",
+  "finish(?:\\s+up)?",
+  "do",
+  "submit",
+  "turn in",
+  "work on",
+];
+
+function stripLeadingVerb(text: string): string {
+  for (const verb of REDUNDANT_LEAD_VERBS) {
+    const match = text.match(new RegExp(`^${verb}\\s+`, "i"));
+    if (match) return text.slice(match[0].length);
+  }
+  return text;
+}
+
+// Cleans up assignment titles (and scribe's notes) for use inside a
+// first-person sentence, stripping access instructions and redundant
+// action verbs that don't make sense once embedded in the log's prose.
+function normalizeForSentence(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return raw;
+
+  let text = trimmed;
+
+  const withoutAccessClause = text.replace(ACCESS_CLAUSE_RE, "").trim();
+  if (withoutAccessClause) text = withoutAccessClause;
+
+  // A verb can be left behind by the access clause (e.g. "...and complete
+  // Science lessons" -> "complete Science lessons"), so strip up to twice.
+  for (let i = 0; i < 2; i++) {
+    const stripped = stripLeadingVerb(text).trim();
+    if (!stripped || stripped === text) break;
+    text = stripped;
+  }
+
+  return text || trimmed;
+}
+
 export function formatLearningLog(
   childName: string,
   startDate: string,
@@ -66,14 +116,16 @@ export function formatLearningLog(
 
   for (const entry of nonSkipped) {
     const subject = entry.subject.name;
-    const title = entry.quest.title;
+    const title = normalizeForSentence(entry.quest.title);
 
     const mins = entry.durationMinutes ?? entry.quest.estimatedMinutes;
     if (mins) totalMinutes += mins;
 
     let phrase = `${title} in ${subject}`;
     if (mins) phrase += ` (${formatDuration(mins)})`;
-    if (entry.assignment.notes) phrase += ` — ${entry.assignment.notes}`;
+    if (entry.assignment.notes) {
+      phrase += ` — ${normalizeForSentence(entry.assignment.notes)}`;
+    }
     completed.push(phrase);
   }
 

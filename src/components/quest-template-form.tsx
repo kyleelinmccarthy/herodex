@@ -37,6 +37,7 @@ type QuestData = {
   rewardDescription: string | null;
   rewardAvatarItem: string | null;
   includeInLearningLog?: boolean;
+  requireNotes?: boolean;
 };
 
 type ScheduleData = {
@@ -94,6 +95,7 @@ export function QuestTemplateForm({
   const [includeInLearningLog, setIncludeInLearningLog] = useState(
     quest?.includeInLearningLog ?? true
   );
+  const [requireNotes, setRequireNotes] = useState(quest?.requireNotes ?? false);
   const defaultRepeatStartDate = schedule?.startDate ?? new Date().toISOString().slice(0, 10);
   const [repeatEnabled, setRepeatEnabled] = useState(!!schedule);
   const [repeatFrequency, setRepeatFrequency] = useState<RepeatFrequency>(
@@ -125,6 +127,7 @@ export function QuestTemplateForm({
     setRewardAvatarItem("");
     setShowRewards(false);
     setIncludeInLearningLog(true);
+    setRequireNotes(false);
     setRepeatEnabled(false);
     setRepeatFrequency("once");
     setRepeatDays(defaultRepeatDaysForStartDate(today, schoolDays));
@@ -194,6 +197,7 @@ export function QuestTemplateForm({
           rewardDescription: rewardDescription || null,
           rewardAvatarItem: rewardAvatarItem || null,
           includeInLearningLog,
+          requireNotes,
         });
 
         if (schedulePayload) {
@@ -210,6 +214,7 @@ export function QuestTemplateForm({
           estimatedMinutes: estimatedMinutes ? parseInt(estimatedMinutes) : undefined,
           ...rewardFields,
           includeInLearningLog,
+          requireNotes,
           schedule: schedulePayload,
         });
       }
@@ -287,6 +292,19 @@ export function QuestTemplateForm({
               checked={includeInLearningLog}
               onCheckedChange={() => setIncludeInLearningLog((v) => !v)}
               aria-label="Include in learning log"
+            />
+          </div>
+          <div className="flex items-center justify-between rounded-lg border border-dashed border-border p-3">
+            <div className="space-y-0.5">
+              <Label htmlFor="quest-require-notes">Require Scribe&apos;s Notes</Label>
+              <p className="text-[10px] text-muted-foreground">
+                Hero must describe what they did before this quest can be marked complete
+              </p>
+            </div>
+            <Switch
+              checked={requireNotes}
+              onCheckedChange={() => setRequireNotes((v) => !v)}
+              aria-label="Require Scribe's Notes"
             />
           </div>
 

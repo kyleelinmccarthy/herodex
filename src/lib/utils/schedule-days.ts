@@ -63,6 +63,15 @@ export function currentTimeOfDay(): string {
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
+/**
+ * The local calendar date of a Date object as "YYYY-MM-DD", using its local
+ * getters rather than toISOString() (which is UTC and can be a day off from
+ * the caller's actual wall-clock date).
+ */
+export function localDateOf(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 /** The weekday code for today, in the browser's local timezone. */
 export function todayDayOfWeek(): DayOfWeek {
   return JS_DAY_ORDER[new Date().getDay()];

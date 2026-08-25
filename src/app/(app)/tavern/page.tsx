@@ -7,6 +7,7 @@ import { getRecentActivities } from "@/lib/actions/activities";
 import { getAssignmentsForDate, generateAssignmentsFromSchedules, getLatestAssignmentStatusByQuest } from "@/lib/actions/quest-assignments";
 import { getQuests } from "@/lib/actions/quests";
 import { getScheduleBlocks } from "@/lib/actions/student-schedule";
+import { getSchoolingModeForDate } from "@/lib/actions/schooling-mode";
 import { getBadges, getChildBadges, checkAndAwardBadges } from "@/lib/actions/badges";
 import { getChildAvatarUnlocks } from "@/lib/actions/avatar";
 import { formatDate } from "@/lib/utils/dates";
@@ -83,7 +84,7 @@ export default async function TavernPage({
   const today = formatDate(new Date());
   await generateAssignmentsFromSchedules(activeChild.id, today, today);
 
-  const [subjects, recentActivities, allBadges, earnedBadges, todayAssignments, quests, avatarUnlocks, allBlocks, latestStatusByQuestId] = await Promise.all([
+  const [subjects, recentActivities, allBadges, earnedBadges, todayAssignments, quests, avatarUnlocks, allBlocks, latestStatusByQuestId, schoolingMode] = await Promise.all([
     getSubjects(activeChild.id),
     getRecentActivities(activeChild.id, 50),
     getBadges(),
@@ -93,6 +94,7 @@ export default async function TavernPage({
     getChildAvatarUnlocks(activeChild.id),
     getScheduleBlocks(activeChild.id),
     getLatestAssignmentStatusByQuest(activeChild.id),
+    getSchoolingModeForDate(activeChild.id, today),
   ]);
 
   const todaysBlocks = allBlocks.filter((b) => b.dayOfWeek === weekdayOfDate(today));
@@ -240,6 +242,8 @@ export default async function TavernPage({
             todaysBlocks={todaysBlocks}
             nowTime={currentTimeOfDay()}
             latestStatusByQuestId={latestStatusByQuestId}
+            today={today}
+            initialSchoolingMode={schoolingMode}
           />
         </div>
       </div>

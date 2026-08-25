@@ -22,6 +22,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import { GameFrame } from "@/components/game-frame";
 import { Dialog, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Avatar } from "@/components/avatar";
@@ -41,6 +42,9 @@ import {
 import { createSubject, updateSubject, deleteSubject, reorderSubjects } from "@/lib/actions/subjects";
 import { toggleLeaderboardVisibility } from "@/lib/actions/leaderboard";
 import { setScheduleSelfManage } from "@/lib/actions/student-schedule";
+import { setSchoolingMode, setSchoolingModeOverride } from "@/lib/actions/schooling-mode";
+import { parseSchoolingModeOverrides, type SchoolingMode } from "@/lib/utils/schooling-mode";
+import { DAYS_OF_WEEK, DAY_LABELS, type DayOfWeek } from "@/lib/utils/schedule-days";
 import type { AvatarConfig } from "@/lib/utils/avatar-catalog";
 
 type Family = {
@@ -69,6 +73,8 @@ type Child = {
   currentStreak: number;
   showOnLeaderboard: boolean;
   scheduleSelfManageEnabled?: boolean;
+  schoolingMode?: string;
+  schoolingModeOverrides?: string | null;
   email?: string | null;
   pinEnabled?: boolean;
   hasPin?: boolean;
@@ -248,6 +254,13 @@ function ChildDetail({ child, isChildView = false }: { child: Child; isChildView
           <ScheduleSelfManageToggle
             childId={child.id}
             enabled={child.scheduleSelfManageEnabled ?? false}
+          />
+        )}
+        {!isChildView && (
+          <SchoolingModeSettings
+            childId={child.id}
+            mode={(child.schoolingMode as SchoolingMode) ?? "unstructured"}
+            overridesJson={child.schoolingModeOverrides ?? null}
           />
         )}
         {!isChildView && (
@@ -937,6 +950,101 @@ function ScheduleSelfManageToggle({ childId, enabled }: { childId: string; enabl
           {saving ? "Enchanting..." : selfManage ? "Make View-Only" : "Allow Editing"}
         </Button>
       </div>
+    </div>
+  );
+}
+
+function SchoolingModeSettings({
+  childId,
+  mode,
+  overridesJson,
+}: {
+  childId: string;
+  mode: SchoolingMode;
+  overridesJson: string | null;
+}) {
+  const router = useRouter();
+  const [saving, setSaving] = useState(false);
+  const [schoolingMode, setLocalMode] = useState<SchoolingMode>(mode);
+  const [overrides, setLocalOverrides] = useState(parseSchoolingModeOverrides(overridesJson));
+  const [expanded, setExpanded] = useState(false);
+
+  async function handleModeChange(next: SchoolingMode) {
+    setSaving(true);
+    try {
+      await setSchoolingMode(childId, next);
+      setLocalMode(next);
+      router.refresh();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleOverrideChange(day: DayOfWeek, next: SchoolingMode | "default") {
+    setSaving(true);
+    try {
+      const value = next === "default" ? null : next;
+      await setSchoolingModeOverride(childId, day, value);
+      setLocalOverrides((prev) => {
+        const copy = { ...prev };
+        if (value === null) delete copy[day];
+        else copy[day] = value;
+        return copy;
+      });
+      router.refresh();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      <h4 className="text-sm font-medium">Schooling Style</h4>
+      <div className="flex items-center justify-between rounded-lg border border-gold-dim bg-muted/30 px-3 py-2.5">
+        <div>
+          <p className="text-sm">
+            {schoolingMode === "structured"
+              ? "Quests are served one at a time, in schedule order."
+              : "This hero can pick any of today's quests, in any order."}
+          </p>
+          <p className="text-xs text-muted-foreground">Default for days without a custom override below.</p>
+        </div>
+        <Select
+          value={schoolingMode}
+          onChange={(e) => handleModeChange(e.target.value as SchoolingMode)}
+          disabled={saving}
+          className="w-40"
+        >
+          <option value="unstructured">Unstructured</option>
+          <option value="structured">Structured</option>
+        </Select>
+      </div>
+      <button
+        type="button"
+        className="text-xs text-primary hover:underline"
+        onClick={() => setExpanded((e) => !e)}
+      >
+        {expanded ? "Hide" : "Customize"} by day
+      </button>
+      {expanded && (
+        <div className="grid grid-cols-2 gap-2 rounded-lg border border-gold-dim bg-muted/20 p-3 sm:grid-cols-3">
+          {DAYS_OF_WEEK.map((day) => (
+            <div key={day} className="flex items-center justify-between gap-2">
+              <Label className="text-xs">{DAY_LABELS[day]}</Label>
+              <Select
+                value={overrides[day] ?? "default"}
+                onChange={(e) => handleOverrideChange(day, e.target.value as SchoolingMode | "default")}
+                disabled={saving}
+                className="h-7 w-28 text-xs"
+              >
+                <option value="default">(use default)</option>
+                <option value="unstructured">Unstructured</option>
+                <option value="structured">Structured</option>
+              </Select>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

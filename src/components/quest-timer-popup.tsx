@@ -3,9 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Dialog, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useQuestTimer, formatElapsed } from "@/hooks/use-quest-timer";
-import { completeAssignment } from "@/lib/actions/quest-assignments";
+import { completeAssignment, getAssignmentQuestInfo } from "@/lib/actions/quest-assignments";
 
 const BREAK_REMINDER_INTERVAL_SECONDS = 30 * 60;
 
@@ -23,6 +24,9 @@ export function QuestTimerPopup() {
     resumeTimer,
   } = useQuestTimer();
   const [acting, setActing] = useState(false);
+  const [notes, setNotes] = useState("");
+  const [requireNotes, setRequireNotes] = useState(false);
+  const [error, setError] = useState("");
 
   // Number of 30-minute break reminders already shown/dismissed for the
   // current timer session, so each threshold only prompts once.
@@ -37,6 +41,24 @@ export function QuestTimerPopup() {
       trackedAssignmentId.current = null;
     }
   }, [activeTimer]);
+
+  // Look up whether the just-stopped quest requires Scribe's Notes before it
+  // can be completed — the timer only tracks an assignment id, not quest data.
+  useEffect(() => {
+    if (!stoppedResult) {
+      setRequireNotes(false);
+      setNotes("");
+      setError("");
+      return;
+    }
+    let cancelled = false;
+    getAssignmentQuestInfo(stoppedResult.assignmentId).then((info) => {
+      if (!cancelled) setRequireNotes(info?.requireNotes ?? false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [stoppedResult?.assignmentId]);
 
   const showBreakReminder =
     !!activeTimer && elapsedSeconds >= BREAK_REMINDER_INTERVAL_SECONDS * (breakRemindersShown + 1);
@@ -64,9 +86,12 @@ export function QuestTimerPopup() {
 
   async function handleComplete() {
     if (!stoppedResult) return;
+    if (requireNotes && notes.trim() === "") return;
     setActing(true);
+    setError("");
     try {
       await completeAssignment(stoppedResult.assignmentId, {
+        description: notes.trim() || undefined,
         durationMinutes: stoppedResult.durationMinutes,
         startedAt: new Date(stoppedResult.startedAt),
         endedAt: new Date(stoppedResult.endedAt),
@@ -74,6 +99,8 @@ export function QuestTimerPopup() {
       });
       clearStoppedResult();
       router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not complete quest");
     } finally {
       setActing(false);
     }
@@ -98,8 +125,19 @@ export function QuestTimerPopup() {
           <div className="text-sm text-muted-foreground">
             {stoppedResult.durationMinutes} minute{stoppedResult.durationMinutes !== 1 ? "s" : ""}
           </div>
+          {requireNotes && (
+            <Input
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Scribe's Notes (required) — what did you do?"
+              required
+              aria-label="Scribe's Notes"
+              className="w-64"
+            />
+          )}
+          {error && <div className="text-xs text-destructive">{error}</div>}
           <div className="flex gap-2">
-            <Button size="sm" onClick={handleComplete} disabled={acting}>
+            <Button size="sm" onClick={handleComplete} disabled={acting || (requireNotes && notes.trim() === "")}>
               {acting ? "Saving..." : "Complete Quest"}
             </Button>
             <Button size="sm" variant="ghost" onClick={handleDiscard} disabled={acting}>

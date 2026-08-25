@@ -23,6 +23,7 @@ type AssignmentWithDetails = {
     rewardXp: number | null;
     rewardDescription: string | null;
     rewardAvatarItem: string | null;
+    requireNotes: boolean;
   };
   subject: {
     id: string;
@@ -42,6 +43,8 @@ export function QuestAssignmentCard({
   const [acting, setActing] = useState(false);
   const [showQuickComplete, setShowQuickComplete] = useState(false);
   const [manualDuration, setManualDuration] = useState("");
+  const [notes, setNotes] = useState("");
+  const [error, setError] = useState("");
   const { activeTimer, elapsedSeconds, isPaused, startTimer, stopTimer, cancelTimer, pauseTimer, resumeTimer } = useQuestTimer();
   const { assignment, quest, subject } = data;
 
@@ -63,26 +66,31 @@ export function QuestAssignmentCard({
   const parsedDuration = parseInt(manualDuration, 10);
   const isDurationValid =
     manualDuration.trim() !== "" && Number.isFinite(parsedDuration) && parsedDuration >= 1 && parsedDuration <= 480;
+  const hasRequiredNotes = !quest.requireNotes || notes.trim() !== "";
 
   function openQuickComplete() {
     setManualDuration(quest.estimatedMinutes ? String(quest.estimatedMinutes) : "");
+    setNotes("");
     setShowQuickComplete(true);
   }
 
   async function handleQuickComplete() {
-    if (!isDurationValid) return;
+    if (!isDurationValid || !hasRequiredNotes) return;
     setActing(true);
+    setError("");
     try {
       await completeAssignment(assignment.id, {
         title: quest.title,
-        description: quest.description ?? undefined,
+        description: notes.trim() || (quest.description ?? undefined),
         durationMinutes: parsedDuration,
         source: "manual",
       });
       router.refresh();
+      setShowQuickComplete(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not complete quest");
     } finally {
       setActing(false);
-      setShowQuickComplete(false);
     }
   }
 
@@ -208,30 +216,42 @@ export function QuestAssignmentCard({
 
       {/* Quick complete inline form */}
       {isPending && showQuickComplete && !isTimerRunning && (
-        <div className="mt-2 flex items-center gap-2 border-t border-border/30 pt-2">
-          <Input
-            type="number"
-            value={manualDuration}
-            onChange={(e) => setManualDuration(e.target.value)}
-            placeholder="min"
-            min={1}
-            max={480}
-            required
-            className="w-20"
-            aria-label="Duration in minutes"
-          />
-          <span className="text-xs text-muted-foreground">min</span>
-          <Button size="sm" onClick={handleQuickComplete} disabled={acting || !isDurationValid}>
-            {acting ? "Saving..." : "Submit"}
-          </Button>
-          <Button size="sm" variant="ghost" onClick={() => setShowQuickComplete(false)} disabled={acting}>
-            Cancel
-          </Button>
-          {isChildView ? null : (
-            <Button size="sm" variant="ghost" onClick={handleSkip} disabled={acting} className="ml-auto" title="Only visible to parents — kids can't skip quests">
-              Skip
-            </Button>
+        <div className="mt-2 space-y-2 border-t border-border/30 pt-2">
+          {error && <p className="text-xs text-destructive">{error}</p>}
+          {quest.requireNotes && (
+            <Input
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Scribe's Notes (required) — what did you do?"
+              required
+              aria-label="Scribe's Notes"
+            />
           )}
+          <div className="flex items-center gap-2">
+            <Input
+              type="number"
+              value={manualDuration}
+              onChange={(e) => setManualDuration(e.target.value)}
+              placeholder="min"
+              min={1}
+              max={480}
+              required
+              className="w-20"
+              aria-label="Duration in minutes"
+            />
+            <span className="text-xs text-muted-foreground">min</span>
+            <Button size="sm" onClick={handleQuickComplete} disabled={acting || !isDurationValid || !hasRequiredNotes}>
+              {acting ? "Saving..." : "Submit"}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setShowQuickComplete(false)} disabled={acting}>
+              Cancel
+            </Button>
+            {isChildView ? null : (
+              <Button size="sm" variant="ghost" onClick={handleSkip} disabled={acting} className="ml-auto" title="Only visible to parents — kids can't skip quests">
+                Skip
+              </Button>
+            )}
+          </div>
         </div>
       )}
     </div>

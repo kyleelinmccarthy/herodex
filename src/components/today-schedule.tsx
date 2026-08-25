@@ -24,6 +24,7 @@ type AssignmentWithDetails = {
     rewardXp: number | null;
     rewardDescription: string | null;
     rewardAvatarItem: string | null;
+    requireNotes: boolean;
   };
   subject: { id: string; name: string; color: string | null };
 };

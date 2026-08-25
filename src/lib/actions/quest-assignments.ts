@@ -6,8 +6,12 @@ import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { createActivity } from "@/lib/actions/activities";
 import { getScheduledDates } from "@/lib/utils/schedule";
-import { getSchoolDays } from "@/lib/actions/student-schedule";
-import { requireChildAccess, requireAssignmentAccess } from "@/lib/auth/access";
+import { getSchoolDays, getScheduleBlocks } from "@/lib/actions/student-schedule";
+import { getSchoolingModeForDate } from "@/lib/actions/schooling-mode";
+import { requireChildAccess, requireAssignmentAccess, isChildActor } from "@/lib/auth/access";
+import { sanitizeText } from "@/lib/utils/sanitize";
+import { weekdayOfDate } from "@/lib/utils/schedule-days";
+import { getNextStructuredQuest } from "@/lib/utils/quest-ordering";
 
 export async function getAssignmentsForDate(childId: string, date: string) {
   await requireChildAccess(childId);
@@ -73,17 +77,85 @@ export async function getLatestAssignmentStatusByQuest(childId: string) {
   return latest;
 }
 
+/**
+ * In structured mode, only the "next" quest in schedule order may be started
+ * or completed BY THE HERO THEMSELVES — a parent/adult can always act on any
+ * quest in any order, the same way they can already Skip a quest (a
+ * child-only-visible restriction elsewhere in this file). This guards BOTH
+ * createAssignment (the "Start a Quest" flow) and completeAssignment —
+ * recurring quests already have a `pending` questAssignment row materialized
+ * by generateAssignmentsFromSchedules before a hero ever opens the page, so
+ * the "Assigned Quests" list's own Mark Done button can complete one
+ * directly without ever going through createAssignment. Gating
+ * createAssignment alone would leave that path wide open for the hero.
+ */
+async function assertQuestUnlockedInStructuredMode(
+  childId: string,
+  date: string,
+  questId: string,
+  isChild: boolean,
+  clientNowTime?: string
+) {
+  if (!isChild) return;
+  const effectiveMode = await getSchoolingModeForDate(childId, date);
+  if (effectiveMode !== "structured") return;
+
+  const [questRows, todayAssignments, latestStatusByQuestId, allBlocks] = await Promise.all([
+    db
+      .select({
+        quest: schema.quest,
+        hasSchedule: sql<boolean>`${schema.questSchedule.id} is not null`,
+      })
+      .from(schema.quest)
+      .leftJoin(schema.questSchedule, eq(schema.questSchedule.questId, schema.quest.id))
+      .where(and(eq(schema.quest.childId, childId), eq(schema.quest.isActive, true))),
+    getAssignmentsForDate(childId, date),
+    getLatestAssignmentStatusByQuest(childId),
+    getScheduleBlocks(childId),
+  ]);
+  const todaysBlocks = allBlocks.filter((b) => b.dayOfWeek === weekdayOfDate(date));
+  const orderable = questRows.map((r) => ({ ...r.quest, hasSchedule: r.hasSchedule }));
+  const next = getNextStructuredQuest({
+    quests: orderable,
+    todayAssignments,
+    latestStatusByQuestId,
+    todaysBlocks,
+    nowTime: clientNowTime,
+  });
+  if (!next) {
+    throw new Error("All of today's quests are already complete.");
+  }
+  if (next.id !== questId) {
+    throw new Error(`Complete "${next.title}" first — quests unlock in order today.`);
+  }
+}
+
 export async function createAssignment(data: {
   questId: string;
   childId: string;
   date: string;
+  // Browser-local "HH:mm" — only consulted (and only trusted the same way
+  // `date` already is) when the hero's effective mode for this date is
+  // structured, to label ordering. The lock itself is driven by completion
+  // status/schedule order, not by this value, so a spoofed time can't skip
+  // the queue.
+  clientNowTime?: string;
 }) {
   // Lazily materializing a quest into a today-assignment is the heart of the
   // "Start a Quest" flow that heroes use themselves, so a child must be able to
   // create one for their own quests. requireChildAccess authorizes both an
   // in-scope adult and the child acting on their own profile. (No
   // requireAdultActor: that gate crashed the child's start-quest action.)
-  await requireChildAccess(data.childId, { write: true });
+  const { access } = await requireChildAccess(data.childId, { write: true });
+
+  await assertQuestUnlockedInStructuredMode(
+    data.childId,
+    data.date,
+    data.questId,
+    isChildActor(access),
+    data.clientNowTime
+  );
+
   const id = nanoid();
   const now = new Date();
   await db.insert(schema.questAssignment).values({
@@ -201,6 +273,40 @@ export async function generateAssignmentsFromSchedules(
   return created;
 }
 
+/**
+ * Refetches everything QuestForm needs for a specific date. Used when the
+ * browser's real local date turns out to differ from what the server
+ * rendered (a midnight-boundary edge case) so the form can re-sync to the
+ * hero's actual "today" instead of the server's.
+ */
+export async function getQuestFormData(childId: string, date: string) {
+  await requireChildAccess(childId);
+  await generateAssignmentsFromSchedules(childId, date, date);
+  const [todayAssignments, allBlocks, latestStatusByQuestId, effectiveMode] = await Promise.all([
+    getAssignmentsForDate(childId, date),
+    getScheduleBlocks(childId),
+    getLatestAssignmentStatusByQuest(childId),
+    getSchoolingModeForDate(childId, date),
+  ]);
+  const todaysBlocks = allBlocks.filter((b) => b.dayOfWeek === weekdayOfDate(date));
+  return { todayAssignments, todaysBlocks, latestStatusByQuestId, effectiveMode };
+}
+
+/** Lightweight lookup used by the timer popup to know whether Scribe's Notes are required before completing. */
+export async function getAssignmentQuestInfo(assignmentId: string) {
+  await requireAssignmentAccess(assignmentId);
+  const rows = await db
+    .select({
+      title: schema.quest.title,
+      requireNotes: schema.quest.requireNotes,
+    })
+    .from(schema.questAssignment)
+    .innerJoin(schema.quest, eq(schema.questAssignment.questId, schema.quest.id))
+    .where(eq(schema.questAssignment.id, assignmentId))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
 export async function completeAssignment(
   assignmentId: string,
   activityData: {
@@ -212,7 +318,7 @@ export async function completeAssignment(
     source?: "manual" | "timer";
   } = {}
 ) {
-  await requireAssignmentAccess(assignmentId, { write: true });
+  const { access } = await requireAssignmentAccess(assignmentId, { write: true });
   // Get the assignment to find quest/child details
   const rows = await db
     .select({
@@ -232,6 +338,18 @@ export async function completeAssignment(
     return { activityId: row.assignment.activityLogId };
   }
 
+  await assertQuestUnlockedInStructuredMode(
+    row.assignment.childId,
+    row.assignment.date,
+    row.quest.id,
+    isChildActor(access)
+  );
+
+  const notes = activityData.description ? sanitizeText(activityData.description) : "";
+  if (row.quest.requireNotes && !notes) {
+    throw new Error("Scribe's Notes are required to complete this quest");
+  }
+
   // Create the activity log entry (this also updates XP/streak)
   const { id: activityId } = await createActivity({
     childId: row.assignment.childId,
@@ -245,7 +363,10 @@ export async function completeAssignment(
     source: activityData.source,
   });
 
-  // Link the activity to the assignment
+  // Link the activity to the assignment, and mirror the scribe's notes onto
+  // the assignment itself so they surface in the learning log alongside
+  // skip notes (learning-log-format reads assignment.notes, not the
+  // activity log's description).
   const now = new Date();
   await db
     .update(schema.questAssignment)
@@ -253,6 +374,7 @@ export async function completeAssignment(
       status: "completed",
       activityLogId: activityId,
       completedAt: now,
+      notes: notes || null,
       updatedAt: now,
     })
     .where(eq(schema.questAssignment.id, assignmentId));

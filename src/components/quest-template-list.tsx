@@ -23,6 +23,7 @@ type Quest = {
   rewardDescription: string | null;
   rewardAvatarItem: string | null;
   includeInLearningLog: boolean;
+  requireNotes: boolean;
 };
 
 type Schedule = {
@@ -57,7 +58,7 @@ export function QuestTemplateList({
   const router = useRouter();
   const [showAdd, setShowAdd] = useState(false);
   const [editingQuest, setEditingQuest] = useState<Quest | null>(null);
-  const [hideCompleted, setHideCompleted] = useState(false);
+  const [hideCompleted, setHideCompleted] = useState(true);
 
   useEffect(() => {
     const stored = localStorage.getItem(HIDE_COMPLETED_KEY);
@@ -155,6 +156,14 @@ export function QuestTemplateList({
                           {q.estimatedMinutes && (
                             <span className="ml-2 text-xs text-muted-foreground">
                               ~{q.estimatedMinutes}min
+                            </span>
+                          )}
+                          {q.requireNotes && (
+                            <span
+                              className="ml-2 inline-flex items-center gap-0.5 text-xs text-[var(--gold-bright)]"
+                              title="Requires Scribe's Notes to complete"
+                            >
+                              <GameIcon name="pencil" className="size-3" />
                             </span>
                           )}
                           {q.description && (

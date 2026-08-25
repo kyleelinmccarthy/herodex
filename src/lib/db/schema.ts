@@ -196,6 +196,15 @@ export const child = sqliteTable(
     scheduleSelfManageEnabled: integer("schedule_self_manage_enabled", { mode: "boolean" }).notNull().default(false),
     // JSON array of weekday codes ("mon".."sun") that are school days; null = default Mon-Fri.
     schoolDays: text("school_days"),
+    // Parent-set default: whether "Start a Quest" serves this hero's assignments
+    // one at a time in schedule order (structured) or lets them free-pick from
+    // today's list (unstructured).
+    schoolingMode: text("schooling_mode", { enum: ["structured", "unstructured"] })
+      .notNull()
+      .default("unstructured"),
+    // Sparse JSON map of weekday -> mode, e.g. {"fri":"unstructured"}. Only days
+    // with an explicit override are present; absent days fall back to schoolingMode.
+    schoolingModeOverrides: text("schooling_mode_overrides"),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   },
@@ -468,6 +477,7 @@ export const quest = sqliteTable(
     includeInLearningLog: integer("include_in_learning_log", { mode: "boolean" })
       .notNull()
       .default(true),
+    requireNotes: integer("require_notes", { mode: "boolean" }).notNull().default(false),
     sortOrder: integer("sort_order").notNull().default(0),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
