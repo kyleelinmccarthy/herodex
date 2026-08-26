@@ -270,6 +270,7 @@ export default async function TavernPage({
             latestStatusByQuestId={latestStatusByQuestId}
             today={today}
             initialSchoolingMode={schoolingMode}
+            isChildView={isChildView}
           />
         </div>
       </div>

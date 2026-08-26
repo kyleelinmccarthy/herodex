@@ -14,12 +14,37 @@ import {
   DAYS_OF_WEEK,
   parseSchoolDays,
   parseStreakOptionalDays,
-  timeRangesOverlap,
+  findSlotConflict,
   type DayOfWeek,
 } from "@/lib/utils/schedule-days";
 
 function isValidTime(value: string): boolean {
   return /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+}
+
+/**
+ * Rejects the two placements that genuinely can't work: a partial time overlap
+ * (nothing could say which class a hero is in halfway through), and the same
+ * subject twice in the identical slot.
+ *
+ * Two *different* subjects sharing the exact same slot is allowed on purpose —
+ * see findSlotConflict. Without it, a parent whose day is already carved into
+ * back-to-back blocks can't add a missing subject at all, which is what left
+ * scheduled quests stranded with no class time to sit in.
+ */
+function assertSlotIsFree(
+  sameDay: { subjectId: string; startTime: string; endTime: string }[],
+  subjectId: string,
+  startTime: string,
+  endTime: string
+) {
+  const conflict = findSlotConflict(sameDay, { subjectId, startTime, endTime });
+  if (!conflict) return;
+  throw new Error(
+    conflict.kind === "overlap"
+      ? "This time overlaps part of another class. Use the exact same start and end time to share a slot, or pick a free time."
+      : "That subject is already in this time slot."
+  );
 }
 
 export async function getSchoolDays(childId: string): Promise<DayOfWeek[]> {
@@ -112,12 +137,14 @@ export async function createScheduleBlock(
   if (!subjectRows[0]) throw new Error("Subject not found for this hero.");
 
   const sameDay = await db
-    .select({ startTime: schema.scheduleBlock.startTime, endTime: schema.scheduleBlock.endTime })
+    .select({
+      subjectId: schema.scheduleBlock.subjectId,
+      startTime: schema.scheduleBlock.startTime,
+      endTime: schema.scheduleBlock.endTime,
+    })
     .from(schema.scheduleBlock)
     .where(and(eq(schema.scheduleBlock.childId, childId), eq(schema.scheduleBlock.dayOfWeek, data.dayOfWeek)));
-  if (sameDay.some((b) => timeRangesOverlap(data.startTime, data.endTime, b.startTime, b.endTime))) {
-    throw new Error("This time overlaps with another class already on this day.");
-  }
+  assertSlotIsFree(sameDay, data.subjectId, data.startTime, data.endTime);
 
   const id = nanoid();
   const now = new Date();
@@ -168,16 +195,20 @@ export async function updateScheduleBlock(
 
   const dayOfWeek = data.dayOfWeek ?? existing.dayOfWeek;
   const sameDay = await db
-    .select({ id: schema.scheduleBlock.id, startTime: schema.scheduleBlock.startTime, endTime: schema.scheduleBlock.endTime })
+    .select({
+      id: schema.scheduleBlock.id,
+      subjectId: schema.scheduleBlock.subjectId,
+      startTime: schema.scheduleBlock.startTime,
+      endTime: schema.scheduleBlock.endTime,
+    })
     .from(schema.scheduleBlock)
     .where(and(eq(schema.scheduleBlock.childId, existing.childId), eq(schema.scheduleBlock.dayOfWeek, dayOfWeek)));
-  if (
-    sameDay.some(
-      (b) => b.id !== blockId && timeRangesOverlap(startTime, endTime, b.startTime, b.endTime)
-    )
-  ) {
-    throw new Error("This time overlaps with another class already on this day.");
-  }
+  assertSlotIsFree(
+    sameDay.filter((b) => b.id !== blockId),
+    data.subjectId ?? existing.subjectId,
+    startTime,
+    endTime
+  );
 
   await db
     .update(schema.scheduleBlock)

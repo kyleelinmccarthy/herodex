@@ -104,17 +104,20 @@ export function formatLearningLog(
   endDate: string,
   assignments: AssignmentRow[]
 ): string {
-  const nonSkipped = assignments.filter((entry) => entry.assignment.status !== "skipped");
+  // Only finished work belongs in a record a parent may hand to a school:
+  // skipped quests weren't done, and stuck ones were attempted but not
+  // finished. Both are visible to the grown-ups elsewhere.
+  const logged = assignments.filter((entry) => entry.assignment.status === "completed");
 
-  if (nonSkipped.length === 0) {
+  if (logged.length === 0) {
     return `Learning Log: ${childName}\n${formatRangeHeader(startDate, endDate)}\n\nNo assignments recorded for this period.`;
   }
 
-  const totalCount = nonSkipped.length;
+  const totalCount = logged.length;
   let totalMinutes = 0;
   const completed: string[] = [];
 
-  for (const entry of nonSkipped) {
+  for (const entry of logged) {
     const subject = entry.subject.name;
     const title = normalizeForSentence(entry.quest.title);
 

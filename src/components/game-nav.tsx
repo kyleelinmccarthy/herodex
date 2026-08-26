@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { UserMenu } from "@/components/user-menu";
 import { QuestHelper } from "@/components/quest-helper";
+import { ParentAlertBell } from "@/components/parent-alert-bell";
 import { GameIcon, type GameIconName } from "@/components/game-icon";
 import { navItemsFor } from "@/components/nav-items";
 import { Tooltip, TooltipProvider } from "@/components/ui/tooltip";
@@ -111,6 +112,9 @@ export function GameNavBar({ userName, isChildView }: { userName: string; isChil
           </div>
 
           <div className="game-navbar-end">
+            {/* Standing alert surface for the grown-ups — mounted on every page
+                so a skipped or stuck quest can't go unseen. */}
+            {!isChildView && <ParentAlertBell />}
             <QuestHelper isChildView={isChildView} />
             <UserMenu userName={userName} />
           </div>

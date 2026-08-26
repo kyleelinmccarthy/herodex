@@ -8,7 +8,12 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { GameFrame } from "@/components/game-frame";
 import { GameIcon } from "@/components/game-icon";
-import { createAssignment, completeAssignment, getQuestFormData } from "@/lib/actions/quest-assignments";
+import {
+  createAssignment,
+  completeAssignment,
+  getQuestFormData,
+  markAssignmentStuck,
+} from "@/lib/actions/quest-assignments";
 import { useQuestTimer } from "@/hooks/use-quest-timer";
 import { useBrowserToday } from "@/hooks/use-browser-today";
 import { formatTimeOfDay } from "@/lib/utils/schedule-days";
@@ -58,6 +63,7 @@ export function QuestForm({
   latestStatusByQuestId = {},
   today,
   initialSchoolingMode = "unstructured",
+  isChildView = false,
 }: {
   childId: string;
   subjects: Subject[];
@@ -68,6 +74,12 @@ export function QuestForm({
   latestStatusByQuestId?: Record<string, { status: string; date: string }>;
   today: string;
   initialSchoolingMode?: SchoolingMode;
+  /**
+   * Whether a hero is looking at their own day. Gates the "I'm Stuck" escape
+   * hatch — in structured mode this panel serves one quest at a time, so
+   * without it a hero who can't finish the quest on top has nowhere to go.
+   */
+  isChildView?: boolean;
 }) {
   const router = useRouter();
   const { startTimer } = useQuestTimer();
@@ -76,6 +88,8 @@ export function QuestForm({
   const [description, setDescription] = useState("");
   const [manualDuration, setManualDuration] = useState("");
   const [showDuration, setShowDuration] = useState(false);
+  const [showStuck, setShowStuck] = useState(false);
+  const [stuckReason, setStuckReason] = useState("");
 
   // Corrects "today"/"now" against the hero's actual browser clock — the
   // server's guess (used for the first paint) can be a day off right around
@@ -208,6 +222,30 @@ export function QuestForm({
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not complete quest");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  /**
+   * "I'm stuck" — the way past a quest a hero genuinely can't finish. It needs
+   * no parent permission (skipping does): being unable to do the work and
+   * being unable to move are different problems, and only the first is the
+   * hero's to sit with. A grown-up is alerted every time.
+   */
+  async function handleStuck() {
+    if (!activeQuestId) return;
+    setSaving(true);
+    setError("");
+    try {
+      const assignmentId = await getOrCreateAssignment(activeQuestId);
+      await markAssignmentStuck(assignmentId, stuckReason.trim() || undefined);
+      setStuckReason("");
+      setShowStuck(false);
+      setDescription("");
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not set this quest aside");
     } finally {
       setSaving(false);
     }
@@ -358,6 +396,21 @@ export function QuestForm({
           />
         </div>
 
+        {showStuck && (
+          <div className="space-y-2 rounded-md border border-[var(--gold-border)]/50 bg-[rgba(201,168,76,0.06)] px-3 py-2">
+            <Label htmlFor="stuck-reason">What&apos;s got you stuck? (optional)</Label>
+            <Input
+              id="stuck-reason"
+              value={stuckReason}
+              onChange={(e) => setStuckReason(e.target.value)}
+              placeholder="e.g. I don't understand step 3"
+            />
+            <p className="text-xs text-muted-foreground">
+              This quest moves aside for today and your grown-up is told, so they can come and help.
+            </p>
+          </div>
+        )}
+
         {showDuration && (
           <div className="flex items-center gap-2">
             <Input
@@ -375,7 +428,7 @@ export function QuestForm({
           </div>
         )}
 
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button onClick={handleStartTimer} disabled={saving || !activeQuest} className="gap-2">
             {saving ? (
               "Starting..."
@@ -415,6 +468,30 @@ export function QuestForm({
           </Button>
           {showDuration && (
             <Button variant="ghost" onClick={() => setShowDuration(false)} disabled={saving}>
+              Cancel
+            </Button>
+          )}
+          {/* A hero can always move on from work they can't finish — no parent
+              permission needed, unlike skipping. The grown-ups are told. */}
+          {isChildView && (
+            <Button
+              variant="ghost"
+              onClick={() => {
+                if (showStuck) {
+                  handleStuck();
+                } else {
+                  setShowDuration(false);
+                  setStuckReason("");
+                  setShowStuck(true);
+                }
+              }}
+              disabled={saving || !activeQuest}
+            >
+              {saving && showStuck ? "Sending..." : showStuck ? "Get Help & Move On" : "I'm Stuck"}
+            </Button>
+          )}
+          {showStuck && (
+            <Button variant="ghost" onClick={() => setShowStuck(false)} disabled={saving}>
               Cancel
             </Button>
           )}

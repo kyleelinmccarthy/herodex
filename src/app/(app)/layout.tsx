@@ -10,6 +10,8 @@ import { SwitchHero } from "@/components/switch-hero";
 import { QuestTimerPopup } from "@/components/quest-timer-popup";
 import { ScheduleNotificationPopup } from "@/components/schedule-notification-popup";
 import { ParentAlertPopup } from "@/components/parent-alerts";
+import { ParentAlertsProvider } from "@/components/parent-alerts-context";
+import { getParentAlerts, type ParentAlert } from "@/lib/actions/parent-alerts";
 
 export default async function AppLayout({
   children,
@@ -40,38 +42,52 @@ export default async function AppLayout({
   const isDemoMode = process.env.DEMO_MODE === "true";
   const persona = isDemoMode ? await getDemoPersona() : null;
 
+  // Fetched here rather than in each surface so the nav bell paints its badge
+  // with the first byte of HTML. Throws when there's no family set up yet,
+  // which just means there's nothing to announce.
+  let initialAlerts: ParentAlert[] = [];
+  if (!isChildView) {
+    try {
+      initialAlerts = await getParentAlerts();
+    } catch {
+      initialAlerts = [];
+    }
+  }
+
   return (
-    <div className="game-shell relative flex min-h-svh flex-col overflow-hidden">
-      {/* Background orbs */}
-      <div className="game-shell-orb game-shell-orb--1" />
-      <div className="game-shell-orb game-shell-orb--2" />
+    <ParentAlertsProvider initialAlerts={initialAlerts} enabled={!isChildView}>
+      <div className="game-shell relative flex min-h-svh flex-col overflow-hidden">
+        {/* Background orbs */}
+        <div className="game-shell-orb game-shell-orb--1" />
+        <div className="game-shell-orb game-shell-orb--2" />
 
-      {/* Top banner with site name */}
-      <GameBanner />
+        {/* Top banner with site name */}
+        <GameBanner />
 
-      {/* Main content */}
-      <main className="game-content">
-        {children}
-      </main>
+        {/* Main content */}
+        <main className="game-content">
+          {children}
+        </main>
 
-      {/* Bottom nav bar */}
-      <GameNavBar userName={userName} isChildView={isChildView} />
+        {/* Bottom nav bar */}
+        <GameNavBar userName={userName} isChildView={isChildView} />
 
-      {isDemoMode && persona && <DemoPersonaSwitcher current={persona} />}
+        {isDemoMode && persona && <DemoPersonaSwitcher current={persona} />}
 
-      {/* Production shared-device hero hand-off / leave control */}
-      {!isDemoMode && <SwitchHero isChildView={isChildView} />}
+        {/* Production shared-device hero hand-off / leave control */}
+        {!isDemoMode && <SwitchHero isChildView={isChildView} />}
 
-      {/* Floating quest timer popup — visible on all pages when a timer is running */}
-      <QuestTimerPopup />
+        {/* Floating quest timer popup — visible on all pages when a timer is running */}
+        <QuestTimerPopup />
 
-      {/* Alerts about what the heroes are up to — grown-ups only */}
-      {!isChildView && <ParentAlertPopup />}
+        {/* Alerts about what the heroes are up to — grown-ups only */}
+        {!isChildView && <ParentAlertPopup />}
 
-      {/* Class start/end notifications — hero view only */}
-      {isChildView && actor.kind === "child" && (
-        <ScheduleNotificationPopup childId={actor.childId} />
-      )}
-    </div>
+        {/* Class start/end notifications — hero view only */}
+        {isChildView && actor.kind === "child" && (
+          <ScheduleNotificationPopup childId={actor.childId} />
+        )}
+      </div>
+    </ParentAlertsProvider>
   );
 }

@@ -6,18 +6,27 @@ import * as schema from "@/lib/db/schema";
 /**
  * Raising in-app notices for the grown-ups. A hero acting on their own quests
  * is the only source today: a parent who hands over skipping still gets told
- * every time it's used, so "allowed" never means "unnoticed".
+ * every time it's used, so "allowed" never means "unnoticed" — and a hero who
+ * gets stuck and moves on always raises one, whether or not skipping was ever
+ * handed over.
  *
  * Plain module, not a "use server" action file — the caller has already
  * authorized the assignment it's alerting about.
  */
 
+export type QuestAlertType = "quest_skipped" | "quest_stuck";
+
 /**
- * Records that a hero skipped one of their own quests. Everything the alert
- * shows is copied in here, so it still reads correctly once the quest is
- * renamed — or removed, taking its assignment row with it.
+ * Records that a hero skipped one of their own quests, or got stuck on one and
+ * moved past it. Everything the alert shows is copied in here, so it still
+ * reads correctly once the quest is renamed — or removed, taking its
+ * assignment row with it.
  */
-export async function recordQuestSkippedAlert(assignmentId: string, note?: string | null) {
+export async function recordQuestAlert(
+  assignmentId: string,
+  type: QuestAlertType,
+  note?: string | null
+) {
   const rows = await db
     .select({
       assignmentId: schema.questAssignment.id,
@@ -42,7 +51,7 @@ export async function recordQuestSkippedAlert(assignmentId: string, note?: strin
     id: nanoid(),
     familyId: row.familyId,
     childId: row.childId,
-    type: "quest_skipped",
+    type,
     questAssignmentId: row.assignmentId,
     childName: row.childName,
     questTitle: row.questTitle,

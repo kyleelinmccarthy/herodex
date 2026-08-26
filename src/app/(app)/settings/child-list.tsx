@@ -1192,6 +1192,11 @@ function SkipQuestsToggle({ childId, enabled }: { childId: string; enabled: bool
               ? "You'll get an alert every time they skip one, with the reason they gave."
               : "Turn this on and you'll still be alerted whenever they skip a quest."}
           </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Either way, &ldquo;I&rsquo;m Stuck&rdquo; is always open to them — work they can&rsquo;t
+            finish is set aside and you&rsquo;re alerted, so a hard problem never
+            strands them for the day.
+          </p>
         </div>
         <Button
           size="sm"

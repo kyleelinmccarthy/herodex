@@ -4,7 +4,13 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { completeAssignment, skipAssignment, updateAssignmentNotes } from "@/lib/actions/quest-assignments";
+import {
+  completeAssignment,
+  markAssignmentStuck,
+  reviseAssignment,
+  skipAssignment,
+  updateAssignmentNotes,
+} from "@/lib/actions/quest-assignments";
 import { useQuestTimer, formatElapsed } from "@/hooks/use-quest-timer";
 import { GameIcon } from "@/components/game-icon";
 import { getRewardItemLabel } from "@/lib/utils/avatar-catalog";
@@ -59,9 +65,13 @@ export function QuestAssignmentCard({
   const [acting, setActing] = useState(false);
   const [showQuickComplete, setShowQuickComplete] = useState(false);
   const [showSkip, setShowSkip] = useState(false);
+  const [showStuck, setShowStuck] = useState(false);
+  const [showRevise, setShowRevise] = useState(false);
   const [showNotesEdit, setShowNotesEdit] = useState(false);
   const [notesDraft, setNotesDraft] = useState("");
   const [skipReason, setSkipReason] = useState("");
+  const [stuckReason, setStuckReason] = useState("");
+  const [reviseNote, setReviseNote] = useState("");
   const [manualDuration, setManualDuration] = useState("");
   const [notes, setNotes] = useState("");
   const [error, setError] = useState("");
@@ -71,6 +81,7 @@ export function QuestAssignmentCard({
   const isPending = assignment.status === "pending";
   const isCompleted = assignment.status === "completed";
   const isSkipped = assignment.status === "skipped";
+  const isStuck = assignment.status === "stuck";
   const isTimerRunning = activeTimer?.assignmentId === assignment.id;
   const hasOtherTimer = activeTimer !== null && !isTimerRunning;
   const hasRewards = !!(quest.rewardXp || quest.rewardDescription || quest.rewardAvatarItem);
@@ -141,6 +152,52 @@ export function QuestAssignmentCard({
     }
   }
 
+  function openStuck() {
+    setStuckReason("");
+    setError("");
+    setShowStuck(true);
+  }
+
+  /**
+   * A hero setting work aside because they can't finish it. Deliberately not
+   * gated on `allowChildSkip`: a hero must never be trapped behind a problem
+   * they can't solve. Their grown-up is alerted every time.
+   */
+  async function handleStuck(reason?: string) {
+    setActing(true);
+    setError("");
+    try {
+      await markAssignmentStuck(assignment.id, reason?.trim() || undefined);
+      setShowStuck(false);
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not set this quest aside");
+    } finally {
+      setActing(false);
+    }
+  }
+
+  function openRevise() {
+    setReviseNote("");
+    setError("");
+    setShowRevise(true);
+  }
+
+  /** Grown-ups only: put a finished, skipped or stuck quest back where it belongs. */
+  async function handleRevise(next: "pending" | "skipped", note?: string) {
+    setActing(true);
+    setError("");
+    try {
+      await reviseAssignment(assignment.id, next, note?.trim() || undefined);
+      setShowRevise(false);
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not change this quest");
+    } finally {
+      setActing(false);
+    }
+  }
+
   async function handleSkip(reason?: string) {
     setActing(true);
     setError("");
@@ -162,9 +219,11 @@ export function QuestAssignmentCard({
           ? "border-green-500/30 bg-green-500/5"
           : isSkipped
             ? "border-border/30 bg-muted/30 opacity-60"
-            : isTimerRunning
-              ? "border-primary/40 bg-primary/5"
-              : "border-border/50 bg-card/50"
+            : isStuck
+              ? "border-[var(--gold-border)]/60 bg-[rgba(201,168,76,0.06)]"
+              : isTimerRunning
+                ? "border-primary/40 bg-primary/5"
+                : "border-border/50 bg-card/50"
       }`}
     >
       <div className="flex flex-wrap items-center gap-3">
@@ -224,6 +283,15 @@ export function QuestAssignmentCard({
           {isSkipped && (
             <span className="text-xs text-muted-foreground">Skipped{assignment.notes ? `: ${assignment.notes}` : ""}</span>
           )}
+          {isStuck && (
+            <p className="flex items-start gap-1 text-xs wrap-anywhere text-[var(--gold-bright)]">
+              <GameIcon name="idea" className="mt-0.5 size-3 shrink-0 text-[var(--gold-bright)]" />
+              <span>
+                {isChildView ? "Stuck — help is on the way" : "Stuck — needs a grown-up"}
+                {assignment.notes ? `: ${assignment.notes}` : ""}
+              </span>
+            </p>
+          )}
         </div>
 
         {/* Timer running actions */}
@@ -255,11 +323,42 @@ export function QuestAssignmentCard({
           </div>
         )}
 
-        {/* A finished quest is still the hero's to annotate */}
-        {isCompleted && !showNotesEdit && (
+        {/* A finished quest is still the hero's to annotate — and, for a
+            grown-up, still theirs to correct when it wasn't really done. */}
+        {isCompleted && !showNotesEdit && !showRevise && (
           <div className="flex shrink-0 gap-1">
             <Button size="sm" variant="ghost" onClick={openNotesEdit} disabled={acting} className="text-muted-foreground">
               {assignment.notes ? "Edit Notes" : "Add Notes"}
+            </Button>
+            {!isChildView && (
+              <Button size="sm" variant="ghost" onClick={openRevise} disabled={acting} className="text-muted-foreground">
+                Not Done
+              </Button>
+            )}
+          </div>
+        )}
+
+        {/* A grown-up can undo a skip they (or the hero) made */}
+        {isSkipped && !isChildView && (
+          <div className="flex shrink-0 gap-1">
+            <Button size="sm" variant="ghost" onClick={() => handleRevise("pending")} disabled={acting} className="text-muted-foreground">
+              Undo Skip
+            </Button>
+          </div>
+        )}
+
+        {/* A stuck quest is waiting on a grown-up: help and finish it, set it
+            aside for today, or put it back on the hero's list. */}
+        {isStuck && !isChildView && !showQuickComplete && (
+          <div className="flex shrink-0 flex-wrap gap-1">
+            <Button size="sm" variant="outline" onClick={openQuickComplete} disabled={acting} className="!border-[var(--gold-bright)]">
+              Mark Done
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => handleRevise("pending")} disabled={acting}>
+              Back to To-Do
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => handleRevise("skipped")} disabled={acting}>
+              Skip for Today
             </Button>
           </div>
         )}
@@ -274,6 +373,9 @@ export function QuestAssignmentCard({
                 </Button>
                 <Button size="sm" variant="outline" onClick={openQuickComplete} disabled={acting} className="!border-[var(--gold-bright)]">
                   Quick Complete
+                </Button>
+                <Button size="sm" variant="ghost" onClick={openStuck} disabled={acting}>
+                  I&apos;m Stuck
                 </Button>
                 {canSkip && (
                   <Button
@@ -304,12 +406,13 @@ export function QuestAssignmentCard({
         )}
       </div>
 
-      {error && !showQuickComplete && !showSkip && !showNotesEdit && (
+      {error && !showQuickComplete && !showSkip && !showStuck && !showRevise && !showNotesEdit && (
         <p className="mt-2 text-xs text-destructive">{error}</p>
       )}
 
-      {/* Quick complete inline form */}
-      {isPending && showQuickComplete && !isTimerRunning && !lockedByOrder && (
+      {/* Quick complete inline form. Also serves a stuck quest a grown-up has
+          since helped with, so they can finish it without reopening it first. */}
+      {(isPending || isStuck) && showQuickComplete && !isTimerRunning && !lockedByOrder && (
         <div className="mt-2 space-y-2 border-t border-border/30 pt-2">
           {error && <p className="text-xs text-destructive">{error}</p>}
           <Input
@@ -367,6 +470,65 @@ export function QuestAssignmentCard({
               {acting ? "Saving..." : "Save Notes"}
             </Button>
             <Button size="sm" variant="ghost" onClick={() => setShowNotesEdit(false)} disabled={acting}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* "I'm stuck": the way out of a quest a hero genuinely can't finish.
+          Needs no permission — being trapped isn't a lesson — but it always
+          fetches a grown-up. */}
+      {isPending && showStuck && !isTimerRunning && (
+        <div className="mt-2 space-y-2 border-t border-border/30 pt-2">
+          {error && <p className="text-xs text-destructive">{error}</p>}
+          <Input
+            value={stuckReason}
+            onChange={(e) => setStuckReason(e.target.value)}
+            placeholder="What's got you stuck? (optional)"
+            aria-label="What you are stuck on"
+          />
+          <div className="flex flex-wrap items-center gap-2">
+            <Button size="sm" onClick={() => handleStuck(stuckReason)} disabled={acting}>
+              {acting ? "Sending..." : "Get Help & Move On"}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setShowStuck(false)} disabled={acting}>
+              Cancel
+            </Button>
+            <span className="text-xs text-muted-foreground">
+              Your grown-up will be told so they can help.
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Grown-ups correcting a completion a hero shouldn't have marked. */}
+      {isCompleted && showRevise && (
+        <div className="mt-2 space-y-2 border-t border-border/30 pt-2">
+          {error && <p className="text-xs text-destructive">{error}</p>}
+          <p className="text-xs text-muted-foreground">
+            Wasn&apos;t really done? Put it back. Any XP and rewards it earned are returned.
+          </p>
+          <Input
+            value={reviseNote}
+            onChange={(e) => setReviseNote(e.target.value)}
+            placeholder="Note for the record (optional)"
+            aria-label="Reason for the change"
+          />
+          <div className="flex flex-wrap items-center gap-2">
+            <Button size="sm" onClick={() => handleRevise("skipped", reviseNote)} disabled={acting}>
+              {acting ? "Saving..." : "Skip for Today"}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => handleRevise("pending", reviseNote)}
+              disabled={acting}
+              className="!border-[var(--gold-bright)]"
+            >
+              Back to To-Do
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setShowRevise(false)} disabled={acting}>
               Cancel
             </Button>
           </div>

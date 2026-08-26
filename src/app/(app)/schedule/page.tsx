@@ -12,6 +12,8 @@ import { ChildSelector } from "@/components/child-selector";
 import { GameFrame } from "@/components/game-frame";
 import { GameIcon } from "@/components/game-icon";
 import { StudentScheduleEditor } from "@/components/student-schedule-editor";
+import { ScheduleGapNotice } from "@/components/schedule-gap-notice";
+import { getSubjectScheduleGaps } from "@/lib/actions/schedule-gaps";
 
 export default async function SchedulePage({
   searchParams,
@@ -38,13 +40,15 @@ export default async function SchedulePage({
     );
   }
 
-  const [subjects, schoolDays, optionalDays, blocks, selfManageEnabled] = await Promise.all([
-    getSubjects(activeChild.id),
-    getSchoolDays(activeChild.id),
-    getStreakOptionalDays(activeChild.id),
-    getScheduleBlocks(activeChild.id),
-    getScheduleSelfManage(activeChild.id),
-  ]);
+  const [subjects, schoolDays, optionalDays, blocks, selfManageEnabled, scheduleGaps] =
+    await Promise.all([
+      getSubjects(activeChild.id),
+      getSchoolDays(activeChild.id),
+      getStreakOptionalDays(activeChild.id),
+      getScheduleBlocks(activeChild.id),
+      getScheduleSelfManage(activeChild.id),
+      getSubjectScheduleGaps(activeChild.id),
+    ]);
 
   const canEdit = !isChildView || selfManageEnabled;
 
@@ -65,6 +69,10 @@ export default async function SchedulePage({
           <ChildSelector kids={allChildren} selectedId={activeChild.id} />
         )}
       </div>
+
+      {/* Scheduled quests whose discipline has no class time on the days they
+          come up. Named here because this page is where the gap gets closed. */}
+      {!isChildView && <ScheduleGapNotice gaps={scheduleGaps} showFixLink={false} />}
 
       {subjects.length === 0 ? (
         <GameFrame>

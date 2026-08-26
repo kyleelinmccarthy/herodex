@@ -4,7 +4,7 @@ import { nanoid } from "nanoid";
 import { eq, and, gte, lte, ne, or, desc, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
-import { createActivity } from "@/lib/actions/activities";
+import { createActivity, deleteActivity } from "@/lib/actions/activities";
 import { getScheduledDates } from "@/lib/utils/schedule";
 import { getSchoolDays, getScheduleBlocks } from "@/lib/actions/student-schedule";
 import { getSchoolingModeForDate } from "@/lib/actions/schooling-mode";
@@ -13,7 +13,7 @@ import { sanitizeText } from "@/lib/utils/sanitize";
 import { weekdayOfDate } from "@/lib/utils/schedule-days";
 import { getNextStructuredQuest } from "@/lib/utils/quest-ordering";
 import { pruneStaleAssignmentsInRange } from "@/lib/services/quest-assignment-sync";
-import { recordQuestSkippedAlert } from "@/lib/services/parent-alerts";
+import { recordQuestAlert } from "@/lib/services/parent-alerts";
 
 /**
  * A removed quest keeps its finished assignments — they're the hero's history
@@ -524,7 +524,179 @@ export async function skipAssignment(assignmentId: string, notes?: string) {
     .where(eq(schema.questAssignment.id, assignmentId));
 
   if (isChild) {
-    await recordQuestSkippedAlert(assignmentId, note);
+    await recordQuestAlert(assignmentId, "quest_skipped", note);
+  }
+}
+
+/**
+ * "I'm stuck." A hero who genuinely cannot finish something still has to be
+ * able to move on — in structured mode the next quest stays locked until this
+ * one is resolved, so without an escape hatch a hard problem stops the whole
+ * day. Unlike skipping, this needs no parent permission (a hero must never be
+ * trapped) and it always raises an alert, so a grown-up knows to come and help.
+ *
+ * It is not a free pass: the quest is not completed, no XP or reward is
+ * granted, it stays out of the learning log, and the grown-ups can reopen it.
+ */
+export async function markAssignmentStuck(assignmentId: string, notes?: string) {
+  const { access } = await requireAssignmentAccess(assignmentId, { write: true });
+  const isChild = isChildActor(access);
+
+  const rows = await db
+    .select({
+      status: schema.questAssignment.status,
+      childId: schema.questAssignment.childId,
+      date: schema.questAssignment.date,
+      questId: schema.questAssignment.questId,
+    })
+    .from(schema.questAssignment)
+    .where(eq(schema.questAssignment.id, assignmentId))
+    .limit(1);
+
+  const row = rows[0];
+  if (!row) throw new Error("Assignment not found");
+  if (row.status === "stuck") return;
+  if (row.status === "completed") {
+    throw new Error("This quest is already complete.");
+  }
+
+  // Getting stuck must not become a way around the queue either: a hero may
+  // only set aside the quest that's currently theirs to do.
+  if (isChild) {
+    await assertQuestUnlockedInStructuredMode(row.childId, row.date, row.questId, true);
+  }
+
+  const note = notes ? sanitizeText(notes) : "";
+  const now = new Date();
+  await db
+    .update(schema.questAssignment)
+    .set({ status: "stuck", notes: note || null, updatedAt: now })
+    .where(eq(schema.questAssignment.id, assignmentId));
+
+  // An adult marking it stuck is the person the alert would be for, so only a
+  // hero's own "I'm stuck" raises one.
+  if (isChild) {
+    await recordQuestAlert(assignmentId, "quest_stuck", note);
+  }
+}
+
+/**
+ * Grown-ups correcting the record. A hero marks something done that wasn't —
+ * a mis-tap, or wishful thinking — and a parent needs to put it back: either
+ * to `skipped` ("we're not doing this one today") or to `pending` ("go and
+ * actually do it"). It also un-skips and un-sticks, so nothing a hero does to
+ * their own day is one-way.
+ *
+ * Undoing a completion has to undo everything the completion granted, or
+ * marking work done that wasn't still pays: the chronicled activity goes
+ * (which recomputes XP and the streak from what's left), the quest's bonus XP
+ * comes back off, and an avatar item this quest unlocked is revoked unless
+ * another completion of the same quest still stands.
+ */
+export async function reviseAssignment(
+  assignmentId: string,
+  next: "pending" | "skipped",
+  notes?: string
+) {
+  const { access } = await requireAssignmentAccess(assignmentId, { write: true });
+  if (isChildActor(access)) {
+    throw new Error("Ask a grown-up — only they can change a finished quest.");
+  }
+
+  const rows = await db
+    .select({
+      assignment: schema.questAssignment,
+      quest: schema.quest,
+    })
+    .from(schema.questAssignment)
+    .innerJoin(schema.quest, eq(schema.questAssignment.questId, schema.quest.id))
+    .where(eq(schema.questAssignment.id, assignmentId))
+    .limit(1);
+
+  const row = rows[0];
+  if (!row) throw new Error("Assignment not found");
+
+  const now = new Date();
+
+  if (row.assignment.status === "completed") {
+    await reverseCompletionRewards(row.assignment, row.quest, assignmentId);
+  }
+
+  await db
+    .update(schema.questAssignment)
+    .set({
+      status: next,
+      // The old notes described work that is no longer on the record; the
+      // grown-up's reason (when they gave one) replaces them.
+      notes: (notes ? sanitizeText(notes) : "") || null,
+      activityLogId: null,
+      completedAt: null,
+      updatedAt: now,
+    })
+    .where(eq(schema.questAssignment.id, assignmentId));
+}
+
+/**
+ * Hands back everything completing this assignment granted. Order matters:
+ * the bonus XP comes off first, because deleting the activity recomputes
+ * `currentXp` as (activity count x 10) + bonusXp and would otherwise fold the
+ * stale bonus straight back in.
+ */
+async function reverseCompletionRewards(
+  assignment: typeof schema.questAssignment.$inferSelect,
+  quest: typeof schema.quest.$inferSelect,
+  assignmentId: string
+) {
+  const now = new Date();
+
+  if (quest.rewardXp) {
+    await db
+      .update(schema.child)
+      .set({
+        // max(0, ...) so a reward granted before the quest's XP was edited
+        // downward can't drive the totals negative.
+        bonusXp: sql`max(0, ${schema.child.bonusXp} - ${quest.rewardXp})`,
+        currentXp: sql`max(0, ${schema.child.currentXp} - ${quest.rewardXp})`,
+        updatedAt: now,
+      })
+      .where(eq(schema.child.id, assignment.childId));
+  }
+
+  if (quest.rewardAvatarItem) {
+    // A recurring quest grants its item once and re-completes harmlessly, so
+    // only take it back when no other completion of this quest still stands.
+    const others = await db
+      .select({ id: schema.questAssignment.id })
+      .from(schema.questAssignment)
+      .where(
+        and(
+          eq(schema.questAssignment.questId, quest.id),
+          eq(schema.questAssignment.childId, assignment.childId),
+          eq(schema.questAssignment.status, "completed"),
+          ne(schema.questAssignment.id, assignmentId)
+        )
+      )
+      .limit(1);
+
+    if (others.length === 0) {
+      const reward = JSON.parse(quest.rewardAvatarItem) as { category: string; itemId: string };
+      await db
+        .delete(schema.childAvatarUnlock)
+        .where(
+          and(
+            eq(schema.childAvatarUnlock.childId, assignment.childId),
+            eq(schema.childAvatarUnlock.category, reward.category),
+            eq(schema.childAvatarUnlock.itemId, reward.itemId),
+            eq(schema.childAvatarUnlock.sourceQuestId, quest.id)
+          )
+        );
+    }
+  }
+
+  // Last, because this recomputes XP and the streak from whatever activities
+  // remain — and it clears the assignment's activityLogId via the FK.
+  if (assignment.activityLogId) {
+    await deleteActivity(assignment.activityLogId);
   }
 }
 

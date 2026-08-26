@@ -201,6 +201,7 @@ async function TodayView({
           latestStatusByQuestId={latestStatusByQuestId}
           today={today}
           initialSchoolingMode={schoolingMode}
+          isChildView={isChildView}
         />
       </div>
 

@@ -7,11 +7,12 @@ import { getQuests } from "@/lib/actions/quests";
 import { getSchedulesForChild } from "@/lib/actions/quest-schedules";
 import { getLatestAssignmentStatusByQuest } from "@/lib/actions/quest-assignments";
 import { getChildAvatarUnlocks } from "@/lib/actions/avatar";
-import { getSchoolDays } from "@/lib/actions/student-schedule";
+import { getSchoolDays, getScheduleBlocks } from "@/lib/actions/student-schedule";
 import { ChildSelector } from "@/components/child-selector";
 import { GameFrame } from "@/components/game-frame";
 import { QuestTemplateList } from "@/components/quest-template-list";
 import { GameIcon } from "@/components/game-icon";
+import { buildBlockDaysBySubject } from "@/lib/utils/schedule-gaps";
 
 export default async function ManageQuestsPage({
   searchParams,
@@ -71,7 +72,7 @@ export default async function ManageQuestsPage({
     );
   }
 
-  const [subjects, quests, avatarUnlocks, schedules, schoolDays, assignmentStatusByQuest] =
+  const [subjects, quests, avatarUnlocks, schedules, schoolDays, assignmentStatusByQuest, blocks] =
     await Promise.all([
       getSubjects(activeChild.id),
       getQuests(activeChild.id),
@@ -79,9 +80,13 @@ export default async function ManageQuestsPage({
       getSchedulesForChild(activeChild.id),
       getSchoolDays(activeChild.id),
       getLatestAssignmentStatusByQuest(activeChild.id),
+      getScheduleBlocks(activeChild.id),
     ]);
 
   const childUnlockedItems = avatarUnlocks.map((u) => u.itemId);
+  // Which disciplines are actually taught when, so the Quest Giver can say
+  // up front when a repeat is pointed at a day with no class time for it.
+  const blockDaysBySubject = buildBlockDaysBySubject(blocks);
 
   return (
     <div className="space-y-6">
@@ -107,6 +112,7 @@ export default async function ManageQuestsPage({
         schedules={schedules}
         schoolDays={schoolDays}
         assignmentStatusByQuest={assignmentStatusByQuest}
+        blockDaysBySubject={blockDaysBySubject}
       />
     </div>
   );

@@ -6,7 +6,7 @@ import {
   generateAssignmentsFromSchedules,
 } from "@/lib/actions/quest-assignments";
 import { getScheduleBlocks } from "@/lib/actions/student-schedule";
-import { getParentAlerts } from "@/lib/actions/parent-alerts";
+import { getSubjectScheduleGaps } from "@/lib/actions/schedule-gaps";
 import { formatDate } from "@/lib/utils/dates";
 import { formatTimeOfDay, weekdayOfDate } from "@/lib/utils/schedule-days";
 import {
@@ -15,6 +15,7 @@ import {
 } from "@/lib/utils/quest-ordering";
 import { GameFrame } from "@/components/game-frame";
 import { ParentAlertsPanel } from "@/components/parent-alerts";
+import { ScheduleGapNotice } from "@/components/schedule-gap-notice";
 import { GameIcon, type GameIconName } from "@/components/game-icon";
 import { Avatar } from "@/components/avatar";
 import type { AvatarConfig } from "@/lib/utils/avatar-catalog";
@@ -32,19 +33,19 @@ export async function ParentDashboard({ allChildren }: { allChildren: ChildRow[]
     allChildren.map((child) => generateAssignmentsFromSchedules(child.id, today, weekOut))
   );
 
-  const alerts = await getParentAlerts();
-
   const perChild = await Promise.all(
     allChildren.map(async (child) => {
-      const [todayAssignments, upcoming, blocks] = await Promise.all([
+      const [todayAssignments, upcoming, blocks, scheduleGaps] = await Promise.all([
         getAssignmentsForDate(child.id, today),
         getAssignmentsForDateRange(child.id, today, weekOut),
         getScheduleBlocks(child.id),
+        getSubjectScheduleGaps(child.id),
       ]);
       return {
         child,
         todayAssignments,
         upcoming,
+        scheduleGaps,
         startTimes: earliestStartTimeByDayAndSubject(blocks),
       };
     })
@@ -74,7 +75,21 @@ export async function ParentDashboard({ allChildren }: { allChildren: ChildRow[]
         <p className="mt-1 text-muted-foreground">Your family&apos;s adventure hub</p>
       </div>
 
-      <ParentAlertsPanel initialAlerts={alerts} />
+      <ParentAlertsPanel />
+
+      {/* Quests scheduled onto days their discipline isn't taught. Nothing else
+          on this dashboard would show it: the assignments are generated as asked
+          and simply sink to the bottom of the hero's day with no time on them. */}
+      {perChild
+        .filter(({ scheduleGaps }) => scheduleGaps.length > 0)
+        .map(({ child, scheduleGaps }) => (
+          <ScheduleGapNotice
+            key={child.id}
+            gaps={scheduleGaps}
+            childId={child.id}
+            childName={allChildren.length > 1 ? child.displayName : undefined}
+          />
+        ))}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <QuicklinkCard href="/scrolls" icon="mage" label="Create Assignment" />

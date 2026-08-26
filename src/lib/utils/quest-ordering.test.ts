@@ -114,6 +114,21 @@ describe("getStructuredQuestQueue", () => {
     expect(queue([assigned("math", "completed"), assigned("reading")])).toEqual(["reading"]);
     expect(queue([assigned("math", "skipped"), assigned("reading")])).toEqual(["reading"]);
   });
+
+  it("moves on when a hero gets stuck, so a hard quest can't strand the day", () => {
+    expect(queue([assigned("math", "stuck"), assigned("reading")])).toEqual(["reading"]);
+  });
+
+  it("does not re-offer a one-off quest the hero got stuck on another day", () => {
+    expect(
+      getStructuredQuestQueue({
+        quests: [{ id: "bonus", title: "bonus", subjectId: "art", hasSchedule: false, sortOrder: 0 }],
+        todayAssignments: [],
+        latestStatusByQuestId: { bonus: { status: "stuck", date: "2026-08-25" } },
+        todaysBlocks: blocks,
+      })
+    ).toEqual([]);
+  });
 });
 
 describe("getStructuredCardLock", () => {

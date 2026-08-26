@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
   timeRangesOverlap,
+  timeRangesConflict,
+  findSlotConflict,
   weekdayOfDate,
   addDaysToDate,
   defaultRepeatDaysForStartDate,
@@ -29,6 +31,97 @@ describe("timeRangesOverlap", () => {
 
   it("detects an identical range as overlapping", () => {
     expect(timeRangesOverlap("09:00", "10:00", "09:00", "10:00")).toBe(true);
+  });
+});
+
+describe("timeRangesConflict", () => {
+  it("allows an identical slot, so two subjects can share one block", () => {
+    expect(timeRangesConflict("09:00", "10:00", "09:00", "10:00")).toBe(false);
+  });
+
+  it("still rejects a partial overlap", () => {
+    expect(timeRangesConflict("09:00", "10:00", "09:30", "10:30")).toBe(true);
+  });
+
+  it("still rejects a fully contained range", () => {
+    expect(timeRangesConflict("09:00", "10:00", "09:15", "09:45")).toBe(true);
+  });
+
+  it("rejects a slot that shares only its start time", () => {
+    expect(timeRangesConflict("09:00", "10:00", "09:00", "09:45")).toBe(true);
+  });
+
+  it("rejects a slot that shares only its end time", () => {
+    expect(timeRangesConflict("09:00", "10:00", "09:15", "10:00")).toBe(true);
+  });
+
+  it("leaves back-to-back slots alone", () => {
+    expect(timeRangesConflict("09:00", "10:00", "10:00", "11:00")).toBe(false);
+  });
+});
+
+describe("findSlotConflict", () => {
+  // A typical fully-booked morning: nothing free left to drop a subject into.
+  const tuesday = [
+    { subjectId: "math", startTime: "08:00", endTime: "08:45" },
+    { subjectId: "reading", startTime: "08:45", endTime: "09:30" },
+    { subjectId: "science", startTime: "09:45", endTime: "10:30" },
+  ];
+
+  it("lets a new subject share an existing slot exactly", () => {
+    expect(
+      findSlotConflict(tuesday, { subjectId: "art", startTime: "08:00", endTime: "08:45" })
+    ).toBeNull();
+  });
+
+  it("blocks a partial overlap and names the class it hits", () => {
+    const conflict = findSlotConflict(tuesday, {
+      subjectId: "art",
+      startTime: "08:15",
+      endTime: "09:00",
+    });
+    expect(conflict?.kind).toBe("overlap");
+    expect(conflict?.block.subjectId).toBe("math");
+  });
+
+  it("blocks a range that swallows a whole class", () => {
+    const conflict = findSlotConflict(tuesday, {
+      subjectId: "art",
+      startTime: "08:00",
+      endTime: "09:30",
+    });
+    expect(conflict?.kind).toBe("overlap");
+  });
+
+  it("blocks the same subject landing twice in one slot", () => {
+    const conflict = findSlotConflict(tuesday, {
+      subjectId: "math",
+      startTime: "08:00",
+      endTime: "08:45",
+    });
+    expect(conflict?.kind).toBe("duplicate");
+  });
+
+  it("allows the same subject at a different time on the same day", () => {
+    expect(
+      findSlotConflict(tuesday, { subjectId: "math", startTime: "13:00", endTime: "13:45" })
+    ).toBeNull();
+  });
+
+  it("allows a genuinely free gap between classes", () => {
+    expect(
+      findSlotConflict(tuesday, { subjectId: "art", startTime: "09:30", endTime: "09:45" })
+    ).toBeNull();
+  });
+
+  it("allows three subjects to stack in one slot", () => {
+    const stacked = [
+      { subjectId: "math", startTime: "08:00", endTime: "08:45" },
+      { subjectId: "art", startTime: "08:00", endTime: "08:45" },
+    ];
+    expect(
+      findSlotConflict(stacked, { subjectId: "reading", startTime: "08:00", endTime: "08:45" })
+    ).toBeNull();
   });
 });
 

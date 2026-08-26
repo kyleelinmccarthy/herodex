@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,7 @@ import {
   syncRepeatDaysWithStartDate,
 } from "@/lib/utils/schedule-days";
 import { ANYTIME_DESCRIPTION } from "@/lib/utils/schedule-summary";
+import { findMissingScheduleDays, formatDayList } from "@/lib/utils/schedule-gaps";
 
 type Subject = { id: string; name: string; color: string | null };
 
@@ -70,6 +71,7 @@ export function QuestTemplateForm({
   childUnlockedItems = [],
   assignedAvatarItems = [],
   schoolDays,
+  blockDaysBySubject = {},
 }: {
   childId: string;
   subjects: Subject[];
@@ -84,6 +86,14 @@ export function QuestTemplateForm({
   assignedAvatarItems?: string[];
   /** Weekday codes this child attends school on; constrains which repeat days can be picked */
   schoolDays: string[];
+  /**
+   * Weekdays each subject actually has class time on, keyed by subject id.
+   * A quest scheduled onto a day its subject isn't taught still gets assigned —
+   * it just has no slot to sit in, so it falls to the bottom of the day and, on
+   * a structured day, behind everything that does have one. This is what lets
+   * the form say so before the quest is saved.
+   */
+  blockDaysBySubject?: Record<string, string[]>;
 }) {
   const router = useRouter();
   const isEditing = !!quest;
@@ -167,6 +177,42 @@ export function QuestTemplateForm({
     setRepeatFrequency("weekly");
     setRepeatDays((prev) => (prev.length > 0 ? prev : defaultRepeatDaysForStartDate(repeatStartDate, schoolDays)));
   }
+
+  const subjectBlockDays = blockDaysBySubject[subjectId] ?? [];
+
+  /**
+   * Days this repeat would put the quest on that its subject has no class time
+   * for. Recomputed live from the form's own state so a parent sees the gap
+   * while they're still making it, not after the hero hits a quest with no
+   * place in their day.
+   */
+  const missingScheduleDays = useMemo(() => {
+    if (availability !== "scheduled" || !subjectId) return [];
+    return findMissingScheduleDays({
+      repeat: {
+        frequency: repeatFrequency,
+        daysOfWeek: repeatFrequency === "weekly" ? repeatDays : null,
+        intervalWeeks: repeatFrequency === "weekly" ? repeatIntervalWeeks : null,
+        startDate: repeatStartDate,
+        endDate: repeatEndDate || null,
+      },
+      subjectBlockDays,
+      schoolDays,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    availability,
+    subjectId,
+    repeatFrequency,
+    repeatDays,
+    repeatIntervalWeeks,
+    repeatStartDate,
+    repeatEndDate,
+    blockDaysBySubject,
+    schoolDays,
+  ]);
+
+  const subjectName = sortedSubjects.find((s) => s.id === subjectId)?.name ?? "This discipline";
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -478,6 +524,33 @@ export function QuestTemplateForm({
                     </div>
                   )}
                 </div>
+
+                {/* The quest's repeat and the weekly schedule are joined only by
+                    discipline, so this pairing is easy to make by accident and
+                    invisible afterwards — the assignment is still created, it
+                    just has no class time to sit in. Say so here, where it can
+                    still be fixed, rather than leaving a hero to find it. */}
+                {missingScheduleDays.length > 0 && (
+                  <div className="space-y-1.5 rounded-md border border-[var(--gold-dim)] bg-[rgba(201,168,76,0.08)] p-3">
+                    <p className="text-xs font-semibold text-[var(--gold-bright)]">
+                      {subjectBlockDays.length === 0
+                        ? `${subjectName} isn't on the weekly schedule at all.`
+                        : `${subjectName} has no class time on ${formatDayList(missingScheduleDays)}.`}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      This quest will still be assigned, but on{" "}
+                      {formatDayList(missingScheduleDays)} it lands at the bottom of Today&apos;s
+                      Quests with no time on it — and on a structured day a hero can&apos;t reach it
+                      until everything that does have a time slot is done.
+                    </p>
+                    <a
+                      href={`/schedule?child=${childId}`}
+                      className="inline-block text-[10px] font-medium text-primary hover:underline"
+                    >
+                      Add {subjectName} to the weekly schedule →
+                    </a>
+                  </div>
+                )}
               </div>
             )}
           </div>

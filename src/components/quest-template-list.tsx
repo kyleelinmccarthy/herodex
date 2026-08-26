@@ -9,6 +9,7 @@ import { GameIcon } from "@/components/game-icon";
 import { QuestTemplateForm } from "./quest-template-form";
 import { deleteQuest } from "@/lib/actions/quests";
 import { ANYTIME_LABEL, describeSchedule } from "@/lib/utils/schedule-summary";
+import { findMissingScheduleDays, formatDayList } from "@/lib/utils/schedule-gaps";
 
 const HIDE_COMPLETED_KEY = "kingdomsandcrowns-hide-completed-quests";
 
@@ -47,6 +48,7 @@ export function QuestTemplateList({
   schedules = [],
   schoolDays,
   assignmentStatusByQuest = {},
+  blockDaysBySubject = {},
 }: {
   childId: string;
   quests: Quest[];
@@ -55,6 +57,8 @@ export function QuestTemplateList({
   schedules?: Schedule[];
   schoolDays: string[];
   assignmentStatusByQuest?: Record<string, AssignmentStatus>;
+  /** Weekdays each discipline has class time on, keyed by subject id. */
+  blockDaysBySubject?: Record<string, string[]>;
 }) {
   const router = useRouter();
   const [showAdd, setShowAdd] = useState(false);
@@ -192,6 +196,30 @@ export function QuestTemplateList({
                               </span>
                             );
                           })()}
+                          {(() => {
+                            // A repeat pointed at days its discipline isn't taught
+                            // leaves the quest with no class time to sit in. It
+                            // still gets assigned — it just drops to the bottom of
+                            // the hero's day — so flag it here rather than letting
+                            // the list imply everything is placed.
+                            const questSchedule = scheduleByQuestId.get(q.id);
+                            if (!questSchedule) return null;
+                            const missing = findMissingScheduleDays({
+                              repeat: questSchedule,
+                              subjectBlockDays: blockDaysBySubject[q.subjectId] ?? [],
+                              schoolDays,
+                            });
+                            if (missing.length === 0) return null;
+                            const name = subject?.name ?? "This discipline";
+                            return (
+                              <span
+                                className="ml-2 whitespace-nowrap rounded-full border border-destructive/50 px-1.5 py-0.5 text-[10px] text-destructive"
+                                title={`${name} has no class time on ${formatDayList(missing)}, so this quest lands at the bottom of the day with no time on it — last in line for a hero on a structured day.`}
+                              >
+                                No class time {formatDayList(missing)}
+                              </span>
+                            );
+                          })()}
                           {q.requireNotes && (
                             <span
                               className="ml-2 inline-flex items-center gap-0.5 text-xs text-[var(--gold-bright)]"
@@ -232,6 +260,7 @@ export function QuestTemplateList({
         childUnlockedItems={childUnlockedItems}
         assignedAvatarItems={assignedAvatarItems}
         schoolDays={schoolDays}
+        blockDaysBySubject={blockDaysBySubject}
       />
 
       {editingQuest && (
@@ -245,6 +274,7 @@ export function QuestTemplateList({
           childUnlockedItems={childUnlockedItems}
           assignedAvatarItems={assignedAvatarItems}
           schoolDays={schoolDays}
+          blockDaysBySubject={blockDaysBySubject}
         />
       )}
     </>

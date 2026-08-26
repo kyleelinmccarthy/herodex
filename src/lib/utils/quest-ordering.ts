@@ -36,10 +36,23 @@ export function blockStatus(block: ScheduleBlockLite | undefined, nowTime: strin
 }
 
 /**
- * A quest already completed or skipped today shouldn't still be offered to start again.
- * Recurring quests only belong in the list on the days they're actually assigned;
- * quests with no recurring schedule are one-off/bonus quests that stay available
- * any day until completed or skipped (checked against their most recent
+ * Statuses that settle a quest for the day. "stuck" belongs here alongside
+ * "completed" and "skipped": a hero who couldn't finish something still has to
+ * be able to move on, so the queue must advance past it rather than serving it
+ * back up forever. Their grown-up is alerted and can reopen it.
+ */
+const RESOLVED_STATUSES = new Set(["completed", "skipped", "stuck"]);
+
+/** Whether an assignment status means the quest is done with for now. */
+export function isResolvedStatus(status: string | undefined): boolean {
+  return status !== undefined && RESOLVED_STATUSES.has(status);
+}
+
+/**
+ * A quest already completed, skipped or stuck today shouldn't still be offered to
+ * start again. Recurring quests only belong in the list on the days they're
+ * actually assigned; quests with no recurring schedule are one-off/bonus quests
+ * that stay available any day until resolved (checked against their most recent
  * assignment ever, not just today's, so a one-off finished or skipped on a
  * previous day doesn't reappear).
  */
@@ -52,11 +65,10 @@ export function filterAvailableQuests<T extends OrderableQuest>(
   const assignedTodayQuestIds = new Set(todayAssignments.map((a) => a.quest.id));
   return quests.filter((q) => {
     const todayStatus = todayStatusByQuestId.get(q.id);
-    if (todayStatus === "completed" || todayStatus === "skipped") return false;
+    if (isResolvedStatus(todayStatus)) return false;
     if (assignedTodayQuestIds.has(q.id)) return true;
     if (q.hasSchedule) return false;
-    const latestStatus = latestStatusByQuestId[q.id]?.status;
-    return latestStatus !== "completed" && latestStatus !== "skipped";
+    return !isResolvedStatus(latestStatusByQuestId[q.id]?.status);
   });
 }
 

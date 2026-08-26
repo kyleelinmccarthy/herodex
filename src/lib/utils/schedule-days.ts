@@ -27,6 +27,60 @@ export function timeRangesOverlap(
   return aStart < bEnd && bStart < aEnd;
 }
 
+/**
+ * True when two "HH:mm" ranges clash badly enough to reject.
+ *
+ * Two classes may deliberately share the *exact* same slot — a single morning
+ * block that covers both Math and Handwriting — because a parent whose day is
+ * already carved into back-to-back slots otherwise has no way to put a missing
+ * subject on the schedule without re-cutting the day. A *partial* overlap is
+ * still a conflict: there'd be no honest answer to which class a hero is in at
+ * 9:30, and the schedule is what structured mode walks in order.
+ */
+export function timeRangesConflict(
+  aStart: string,
+  aEnd: string,
+  bStart: string,
+  bEnd: string
+): boolean {
+  if (aStart === bStart && aEnd === bEnd) return false;
+  return timeRangesOverlap(aStart, aEnd, bStart, bEnd);
+}
+
+export type SlotLike = { subjectId: string; startTime: string; endTime: string };
+
+/**
+ * The one block on a day that makes a candidate block impossible, or null when
+ * there isn't one. Shared by the schedule editor and the server action so the
+ * form never offers a placement the server will then refuse.
+ *
+ * - `"overlap"`: the candidate covers part, but not all, of another class.
+ * - `"duplicate"`: that subject is already in this exact slot.
+ *
+ * Deliberately absent: a different subject in the identical slot, which is
+ * allowed — that's how a subject gets onto a day already carved into
+ * back-to-back blocks.
+ */
+export function findSlotConflict<T extends SlotLike>(
+  sameDay: T[],
+  candidate: SlotLike
+): { kind: "overlap" | "duplicate"; block: T } | null {
+  const overlapping = sameDay.find((b) =>
+    timeRangesConflict(candidate.startTime, candidate.endTime, b.startTime, b.endTime)
+  );
+  if (overlapping) return { kind: "overlap", block: overlapping };
+
+  const duplicate = sameDay.find(
+    (b) =>
+      b.subjectId === candidate.subjectId &&
+      b.startTime === candidate.startTime &&
+      b.endTime === candidate.endTime
+  );
+  if (duplicate) return { kind: "duplicate", block: duplicate };
+
+  return null;
+}
+
 /** Minutes since midnight for an "HH:mm" time string. */
 export function timeToMinutes(time: string): number {
   const [h, m] = time.split(":").map(Number);

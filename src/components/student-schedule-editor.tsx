@@ -21,7 +21,7 @@ import {
   DAYS_OF_WEEK,
   addMinutesToTime,
   formatTimeOfDay,
-  timeRangesOverlap,
+  findSlotConflict,
   timeToMinutes,
   todayDayOfWeek,
   type DayOfWeek,
@@ -221,8 +221,21 @@ function DayRow({
   const router = useRouter();
   const [mode, setMode] = useState<"none" | "add" | "copy">("none");
   const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
+  const [addSlot, setAddSlot] = useState<{ startTime: string; endTime: string } | null>(null);
   const [error, setError] = useState("");
-  const sorted = [...blocks].sort((a, b) => a.startTime.localeCompare(b.startTime));
+  // Subjects sharing a slot sort together, so a stacked morning block reads as
+  // one thing rather than two rows that happen to show the same time.
+  const sorted = [...blocks].sort(
+    (a, b) =>
+      a.startTime.localeCompare(b.startTime) ||
+      a.endTime.localeCompare(b.endTime) ||
+      (subjects.find((s) => s.id === a.subjectId)?.name ?? "").localeCompare(
+        subjects.find((s) => s.id === b.subjectId)?.name ?? ""
+      )
+  );
+  /** True when another class on this day occupies the exact same start/end time. */
+  const sharesSlot = (block: Block) =>
+    sorted.some((b) => b.id !== block.id && b.startTime === block.startTime && b.endTime === block.endTime);
   const otherDays = DAYS_OF_WEEK.filter((d) => d !== day).map((d) => ({
     day: d,
     count: allBlocks.filter((b) => b.dayOfWeek === d).length,
@@ -244,10 +257,16 @@ function DayRow({
     setError("");
   }
 
-  function startMode(next: "add" | "copy") {
+  function startMode(next: "add" | "copy", slot: { startTime: string; endTime: string } | null = null) {
     setEditingBlockId(null);
+    setAddSlot(slot);
     setMode(next);
     setError("");
+  }
+
+  function closeForm() {
+    setMode("none");
+    setAddSlot(null);
   }
 
   return (
@@ -359,12 +378,32 @@ function DayRow({
                   className="size-3 shrink-0 rounded-full"
                   style={{ backgroundColor: subject?.color ?? "#6b7280" }}
                 />
-                <span className="flex-1 text-sm">{subject?.name ?? "Unknown"}</span>
+                <span className="flex-1 text-sm">
+                  {subject?.name ?? "Unknown"}
+                  {sharesSlot(block) && (
+                    <span
+                      className="ml-1.5 text-[10px] text-muted-foreground"
+                      title="This time slot covers more than one subject"
+                    >
+                      shared slot
+                    </span>
+                  )}
+                </span>
                 <span className="text-xs text-muted-foreground">
                   {formatTimeOfDay(block.startTime)}&ndash;{formatTimeOfDay(block.endTime)}
                 </span>
                 {canEdit && (
                   <>
+                    <Button
+                      size="xs"
+                      variant="ghost"
+                      className="text-muted-foreground hover:text-foreground"
+                      onClick={() => startMode("add", { startTime: block.startTime, endTime: block.endTime })}
+                      aria-label={`Add another subject to the ${formatTimeOfDay(block.startTime)} slot on ${DAY_LABELS[day]}`}
+                      title="Add another subject to this same time slot"
+                    >
+                      +
+                    </Button>
                     <Button
                       size="xs"
                       variant="ghost"
@@ -409,7 +448,8 @@ function DayRow({
                   day={day}
                   subjects={subjects}
                   existingBlocks={sorted}
-                  onDone={() => setMode("none")}
+                  defaultSlot={addSlot}
+                  onDone={closeForm}
                   onError={setError}
                 />
               )}
@@ -418,7 +458,7 @@ function DayRow({
                   childId={childId}
                   day={day}
                   otherDays={otherDays}
-                  onDone={() => setMode("none")}
+                  onDone={closeForm}
                   onError={setError}
                 />
               )}
@@ -443,6 +483,9 @@ function DayRow({
 /**
  * Adds a class, or edits one in place when `block` is given. In edit mode `existingBlocks`
  * excludes the block being edited, so it never conflicts with its own time slot.
+ *
+ * `defaultSlot` pre-fills an existing slot's times — the "+" on a class row, for
+ * stacking a second subject into a day that's already fully carved up.
  */
 function BlockForm({
   childId,
@@ -450,6 +493,7 @@ function BlockForm({
   subjects,
   existingBlocks,
   block,
+  defaultSlot = null,
   onDone,
   onError,
 }: {
@@ -458,6 +502,7 @@ function BlockForm({
   subjects: Subject[];
   existingBlocks: Block[];
   block?: Block;
+  defaultSlot?: { startTime: string; endTime: string } | null;
   onDone: () => void;
   onError: (msg: string) => void;
 }) {
@@ -468,7 +513,7 @@ function BlockForm({
   const [defaults] = useState(() =>
     block
       ? { startTime: block.startTime, endTime: block.endTime }
-      : defaultTimeSlot(existingBlocks)
+      : defaultSlot ?? defaultTimeSlot(existingBlocks)
   );
   const [startTime, setStartTime] = useState(defaults.startTime);
   const [endTime, setEndTime] = useState(defaults.endTime);
@@ -484,21 +529,38 @@ function BlockForm({
       onError("End time must be after start time.");
       return;
     }
-    const alreadyScheduled = existingBlocks.some((b) => b.subjectId === subjectId);
-    if (alreadyScheduled && subjectId !== block?.subjectId) {
-      const subjectName = subjects.find((s) => s.id === subjectId)?.name ?? "This subject";
+    const subjectName = subjects.find((s) => s.id === subjectId)?.name ?? "This subject";
+    const nameOf = (id: string) => subjects.find((s) => s.id === id)?.name ?? "another class";
+
+    // Same rule the server enforces, so the form never offers a placement that
+    // is about to be refused.
+    const conflict = findSlotConflict(existingBlocks, { subjectId, startTime, endTime });
+    if (conflict) {
+      const other = conflict.block;
+      onError(
+        conflict.kind === "overlap"
+          ? `That overlaps part of ${nameOf(other.subjectId)} (${formatTimeOfDay(other.startTime)}–${formatTimeOfDay(other.endTime)}). Use its exact start and end time to share the slot, or pick a free time.`
+          : `${subjectName} is already in this time slot.`
+      );
+      return;
+    }
+
+    // Sharing a slot is a real choice, not a mistake — but it should never be
+    // reached by a typo in the time fields, so name what it's joining.
+    const slotMate = existingBlocks.find((b) => b.startTime === startTime && b.endTime === endTime);
+    if (slotMate) {
+      if (
+        !confirm(
+          `${formatTimeOfDay(startTime)}–${formatTimeOfDay(endTime)} already covers ${nameOf(slotMate.subjectId)}. Share the slot with ${subjectName}?`
+        )
+      ) {
+        return;
+      }
+    } else if (existingBlocks.some((b) => b.subjectId === subjectId) && subjectId !== block?.subjectId) {
       const verb = isEditing ? "Move this slot to it anyway?" : "Add it again?";
       if (!confirm(`${subjectName} is already scheduled on ${DAY_LABELS[day]}. ${verb}`)) {
         return;
       }
-    }
-    const conflict = existingBlocks.find((b) => timeRangesOverlap(startTime, endTime, b.startTime, b.endTime));
-    if (conflict) {
-      const conflictName = subjects.find((s) => s.id === conflict.subjectId)?.name ?? "another class";
-      onError(
-        `That overlaps with ${conflictName} (${formatTimeOfDay(conflict.startTime)}–${formatTimeOfDay(conflict.endTime)}).`
-      );
-      return;
     }
 
     setSaving(true);

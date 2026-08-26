@@ -545,7 +545,11 @@ export const questAssignment = sqliteTable(
       .notNull()
       .references(() => child.id, { onDelete: "cascade" }),
     date: text("date").notNull(), // ISO YYYY-MM-DD
-    status: text("status", { enum: ["pending", "completed", "skipped"] })
+    // "stuck" is a hero's own escape hatch: work they could not finish but had
+    // to move past. It resolves the day the way "skipped" does — the structured
+    // queue advances, the learning log leaves it out — but it says "I need
+    // help", not "I chose not to", and it always raises a parentAlert.
+    status: text("status", { enum: ["pending", "completed", "skipped", "stuck"] })
       .notNull()
       .default("pending"),
     activityLogId: text("activity_log_id")
@@ -686,7 +690,7 @@ export const parentAlert = sqliteTable(
     childId: text("child_id")
       .notNull()
       .references(() => child.id, { onDelete: "cascade" }),
-    type: text("type", { enum: ["quest_skipped"] }).notNull(),
+    type: text("type", { enum: ["quest_skipped", "quest_stuck"] }).notNull(),
     questAssignmentId: text("quest_assignment_id").references(() => questAssignment.id, {
       onDelete: "set null",
     }),

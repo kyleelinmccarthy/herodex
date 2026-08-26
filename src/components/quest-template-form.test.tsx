@@ -250,3 +250,110 @@ describe("QuestTemplateForm", () => {
     });
   });
 });
+
+describe("QuestTemplateForm schedule-gap warning", () => {
+  // Math (s1) is taught Mon and Wed. Reading (s2) is absent from the map
+  // entirely — it has no class time on any day.
+  const blockDaysBySubject = { s1: ["mon", "wed"] };
+
+  const quest = {
+    id: "q1",
+    title: "Times Tables",
+    subjectId: "s1",
+    description: null,
+    estimatedMinutes: null,
+    rewardXp: null,
+    rewardDescription: null,
+    rewardAvatarItem: null,
+  };
+
+  // Editing a real quest pins the start date and repeat days, so these assertions
+  // don't shift with the day the suite happens to run on. 2026-08-24 is a Monday.
+  const schedule = {
+    id: "sch1",
+    frequency: "weekly",
+    daysOfWeek: JSON.stringify(["mon", "wed"]),
+    intervalWeeks: 1,
+    startDate: "2026-08-24",
+    endDate: null,
+  };
+
+  function renderForm() {
+    return render(
+      <QuestTemplateForm
+        childId="c1"
+        subjects={subjects}
+        quest={quest}
+        schedule={schedule}
+        open={true}
+        onClose={vi.fn()}
+        schoolDays={schoolDays}
+        blockDaysBySubject={blockDaysBySubject}
+      />
+    );
+  }
+
+  it("stays quiet when every repeat day is taught", () => {
+    renderForm();
+    expect(screen.queryByText(/has no class time/i)).not.toBeInTheDocument();
+  });
+
+  it("warns as soon as a repeat day with no class time is added", async () => {
+    const user = userEvent.setup();
+    renderForm();
+    await user.click(screen.getByText("Fri"));
+    expect(screen.getByText(/Math has no class time on Fri/i)).toBeInTheDocument();
+  });
+
+  it("names every untaught day, not just the first", async () => {
+    const user = userEvent.setup();
+    renderForm();
+    await user.click(screen.getByText("Tue"));
+    await user.click(screen.getByText("Fri"));
+    expect(screen.getByText(/Math has no class time on Tue and Fri/i)).toBeInTheDocument();
+  });
+
+  it("calls out a discipline that is not on the schedule at all", async () => {
+    const user = userEvent.setup();
+    renderForm();
+    await user.selectOptions(screen.getByLabelText("Discipline"), "s2");
+    expect(screen.getByText(/Reading isn't on the weekly schedule at all/i)).toBeInTheDocument();
+  });
+
+  it("explains the consequence rather than just flagging it", async () => {
+    const user = userEvent.setup();
+    renderForm();
+    await user.click(screen.getByText("Fri"));
+    expect(screen.getByText(/lands at the bottom of Today's Quests/i)).toBeInTheDocument();
+    expect(screen.getByText(/structured day a hero can't reach it/i)).toBeInTheDocument();
+  });
+
+  it("offers a way to close the gap", async () => {
+    const user = userEvent.setup();
+    renderForm();
+    await user.selectOptions(screen.getByLabelText("Discipline"), "s2");
+    expect(
+      screen.getByText(/Add Reading to the weekly schedule/i).closest("a")
+    ).toHaveAttribute("href", "/schedule?child=c1");
+  });
+
+  it("clears once the repeat is pulled back onto taught days", async () => {
+    const user = userEvent.setup();
+    renderForm();
+    await user.click(screen.getByText("Fri"));
+    expect(screen.getByText(/has no class time on Fri/i)).toBeInTheDocument();
+
+    await user.click(screen.getByText("Fri"));
+    expect(screen.queryByText(/has no class time/i)).not.toBeInTheDocument();
+  });
+
+  it("says nothing at all once the quest is switched to Anytime", async () => {
+    const user = userEvent.setup();
+    renderForm();
+    await user.click(screen.getByText("Fri"));
+    expect(screen.getByText(/has no class time on Fri/i)).toBeInTheDocument();
+
+    await user.click(screen.getByText("Anytime"));
+    expect(screen.queryByText(/has no class time/i)).not.toBeInTheDocument();
+  });
+});
