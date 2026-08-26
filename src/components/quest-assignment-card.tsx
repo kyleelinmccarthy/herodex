@@ -19,7 +19,10 @@ type AssignmentWithDetails = {
   assignment: {
     id: string;
     status: string;
+    /** Scribe's Notes — the record of work that was done. */
     notes: string | null;
+    /** Why the quest was skipped or set aside. Never Scribe's Notes. */
+    statusReason: string | null;
   };
   quest: {
     id: string;
@@ -158,16 +161,25 @@ export function QuestAssignmentCard({
     setShowStuck(true);
   }
 
+  function openSkip() {
+    setSkipReason("");
+    setError("");
+    setShowQuickComplete(false);
+    setShowSkip(true);
+  }
+
   /**
    * A hero setting work aside because they can't finish it. Deliberately not
    * gated on `allowChildSkip`: a hero must never be trapped behind a problem
-   * they can't solve. Their grown-up is alerted every time.
+   * they can't solve. Their grown-up is alerted every time — and the reason is
+   * the whole point of that alert, so it is required, never optional.
    */
-  async function handleStuck(reason?: string) {
+  async function handleStuck(reason: string) {
+    if (reason.trim() === "") return;
     setActing(true);
     setError("");
     try {
-      await markAssignmentStuck(assignment.id, reason?.trim() || undefined);
+      await markAssignmentStuck(assignment.id, reason.trim());
       setShowStuck(false);
       router.refresh();
     } catch (err) {
@@ -183,12 +195,17 @@ export function QuestAssignmentCard({
     setShowRevise(true);
   }
 
-  /** Grown-ups only: put a finished, skipped or stuck quest back where it belongs. */
-  async function handleRevise(next: "pending" | "skipped", note?: string) {
+  /**
+   * Grown-ups only: put a finished, skipped or stuck quest back where it
+   * belongs. Sending it to `skipped` is a skip, so it owes a reason too;
+   * putting it back on the to-do list owes nothing.
+   */
+  async function handleRevise(next: "pending" | "skipped", reason?: string) {
+    if (next === "skipped" && !reason?.trim()) return;
     setActing(true);
     setError("");
     try {
-      await reviseAssignment(assignment.id, next, note?.trim() || undefined);
+      await reviseAssignment(assignment.id, next, reason?.trim() || undefined);
       setShowRevise(false);
       router.refresh();
     } catch (err) {
@@ -198,11 +215,13 @@ export function QuestAssignmentCard({
     }
   }
 
-  async function handleSkip(reason?: string) {
+  /** Skipping always says why — a grown-up's skip as much as a hero's. */
+  async function handleSkip(reason: string) {
+    if (reason.trim() === "") return;
     setActing(true);
     setError("");
     try {
-      await skipAssignment(assignment.id, reason?.trim() || undefined);
+      await skipAssignment(assignment.id, reason.trim());
       setShowSkip(false);
       router.refresh();
     } catch (err) {
@@ -281,14 +300,16 @@ export function QuestAssignmentCard({
             </>
           )}
           {isSkipped && (
-            <span className="text-xs text-muted-foreground">Skipped{assignment.notes ? `: ${assignment.notes}` : ""}</span>
+            <span className="text-xs text-muted-foreground">
+              Skipped{assignment.statusReason ? `: ${assignment.statusReason}` : ""}
+            </span>
           )}
           {isStuck && (
             <p className="flex items-start gap-1 text-xs wrap-anywhere text-[var(--gold-bright)]">
               <GameIcon name="idea" className="mt-0.5 size-3 shrink-0 text-[var(--gold-bright)]" />
               <span>
                 {isChildView ? "Stuck — help is on the way" : "Stuck — needs a grown-up"}
-                {assignment.notes ? `: ${assignment.notes}` : ""}
+                {assignment.statusReason ? `: ${assignment.statusReason}` : ""}
               </span>
             </p>
           )}
@@ -349,7 +370,7 @@ export function QuestAssignmentCard({
 
         {/* A stuck quest is waiting on a grown-up: help and finish it, set it
             aside for today, or put it back on the hero's list. */}
-        {isStuck && !isChildView && !showQuickComplete && (
+        {isStuck && !isChildView && !showQuickComplete && !showSkip && (
           <div className="flex shrink-0 flex-wrap gap-1">
             <Button size="sm" variant="outline" onClick={openQuickComplete} disabled={acting} className="!border-[var(--gold-bright)]">
               Mark Done
@@ -357,7 +378,7 @@ export function QuestAssignmentCard({
             <Button size="sm" variant="ghost" onClick={() => handleRevise("pending")} disabled={acting}>
               Back to To-Do
             </Button>
-            <Button size="sm" variant="ghost" onClick={() => handleRevise("skipped")} disabled={acting}>
+            <Button size="sm" variant="ghost" onClick={openSkip} disabled={acting}>
               Skip for Today
             </Button>
           </div>
@@ -378,16 +399,7 @@ export function QuestAssignmentCard({
                   I&apos;m Stuck
                 </Button>
                 {canSkip && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => {
-                      setSkipReason("");
-                      setError("");
-                      setShowSkip(true);
-                    }}
-                    disabled={acting}
-                  >
+                  <Button size="sm" variant="ghost" onClick={openSkip} disabled={acting}>
                     Skip
                   </Button>
                 )}
@@ -397,7 +409,7 @@ export function QuestAssignmentCard({
                 <Button size="sm" variant="outline" onClick={openQuickComplete} disabled={acting} className="!border-[var(--gold-bright)]">
                   Mark Done
                 </Button>
-                <Button size="sm" variant="ghost" onClick={() => handleSkip()} disabled={acting}>
+                <Button size="sm" variant="ghost" onClick={openSkip} disabled={acting}>
                   Skip
                 </Button>
               </>
@@ -442,7 +454,7 @@ export function QuestAssignmentCard({
               Cancel
             </Button>
             {isChildView ? null : (
-              <Button size="sm" variant="ghost" onClick={() => handleSkip()} disabled={acting} className="ml-auto">
+              <Button size="sm" variant="ghost" onClick={openSkip} disabled={acting} className="ml-auto">
                 Skip
               </Button>
             )}
@@ -485,11 +497,16 @@ export function QuestAssignmentCard({
           <Input
             value={stuckReason}
             onChange={(e) => setStuckReason(e.target.value)}
-            placeholder="What's got you stuck? (optional)"
+            placeholder="What's got you stuck? (required)"
+            required
             aria-label="What you are stuck on"
           />
           <div className="flex flex-wrap items-center gap-2">
-            <Button size="sm" onClick={() => handleStuck(stuckReason)} disabled={acting}>
+            <Button
+              size="sm"
+              onClick={() => handleStuck(stuckReason)}
+              disabled={acting || stuckReason.trim() === ""}
+            >
               {acting ? "Sending..." : "Get Help & Move On"}
             </Button>
             <Button size="sm" variant="ghost" onClick={() => setShowStuck(false)} disabled={acting}>
@@ -512,17 +529,23 @@ export function QuestAssignmentCard({
           <Input
             value={reviseNote}
             onChange={(e) => setReviseNote(e.target.value)}
-            placeholder="Note for the record (optional)"
-            aria-label="Reason for the change"
+            placeholder="Why is it being skipped? (required to skip)"
+            aria-label="Reason for skipping"
           />
           <div className="flex flex-wrap items-center gap-2">
-            <Button size="sm" onClick={() => handleRevise("skipped", reviseNote)} disabled={acting}>
+            <Button
+              size="sm"
+              onClick={() => handleRevise("skipped", reviseNote)}
+              disabled={acting || reviseNote.trim() === ""}
+            >
               {acting ? "Saving..." : "Skip for Today"}
             </Button>
+            {/* Back on the to-do list needs no reason — nothing is being set
+                aside, so there is nothing for a grown-up to explain. */}
             <Button
               size="sm"
               variant="outline"
-              onClick={() => handleRevise("pending", reviseNote)}
+              onClick={() => handleRevise("pending")}
               disabled={acting}
               className="!border-[var(--gold-bright)]"
             >
@@ -535,25 +558,35 @@ export function QuestAssignmentCard({
         </div>
       )}
 
-      {/* A hero's own skip — the grown-ups hear about it either way, and a
-          reason makes that alert worth reading. */}
-      {isPending && showSkip && !isTimerRunning && (
+      {/* Every skip says why — a hero's own, which the grown-ups hear about
+          either way, and a grown-up's, which is the only record of it there
+          will be. Also serves a stuck quest being set aside for the day. */}
+      {(isPending || isStuck) && showSkip && !isTimerRunning && (
         <div className="mt-2 space-y-2 border-t border-border/30 pt-2">
           {error && <p className="text-xs text-destructive">{error}</p>}
           <Input
             value={skipReason}
             onChange={(e) => setSkipReason(e.target.value)}
-            placeholder="Why are you skipping? (optional)"
+            placeholder={
+              isChildView ? "Why are you skipping? (required)" : "Why is it being skipped? (required)"
+            }
+            required
             aria-label="Reason for skipping"
           />
           <div className="flex items-center gap-2">
-            <Button size="sm" onClick={() => handleSkip(skipReason)} disabled={acting}>
+            <Button
+              size="sm"
+              onClick={() => handleSkip(skipReason)}
+              disabled={acting || skipReason.trim() === ""}
+            >
               {acting ? "Skipping..." : "Skip Quest"}
             </Button>
             <Button size="sm" variant="ghost" onClick={() => setShowSkip(false)} disabled={acting}>
               Cancel
             </Button>
-            <span className="text-xs text-muted-foreground">Your grown-up will be told.</span>
+            {isChildView && (
+              <span className="text-xs text-muted-foreground">Your grown-up will be told.</span>
+            )}
           </div>
         </div>
       )}

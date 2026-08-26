@@ -60,7 +60,7 @@ beforeEach(() => {
 afterEach(cleanup);
 
 const baseData = {
-  assignment: { id: "qa1", status: "pending", notes: null },
+  assignment: { id: "qa1", status: "pending", notes: null, statusReason: null },
   quest: { id: "q1", title: "Read Chapter 5", description: "Pages 50-75", estimatedMinutes: 30, rewardXp: null, rewardDescription: null, rewardAvatarItem: null, requireNotes: false },
   subject: { id: "s1", name: "Math", color: "#ef4444" },
 };
@@ -192,11 +192,35 @@ describe("QuestAssignmentCard", () => {
     expect(screen.queryByText("Skip")).not.toBeInTheDocument();
   });
 
-  it("skips straight away for a parent, with no reason prompt", async () => {
+  it("asks a grown-up why before it skips, and does not tell them off about it", async () => {
     const user = userEvent.setup();
     render(<QuestAssignmentCard data={baseData} isChildView={false} />);
     await user.click(screen.getByText("Skip"));
-    expect(skipAssignment).toHaveBeenCalledWith("qa1", undefined);
+    expect(skipAssignment).not.toHaveBeenCalled();
+    expect(screen.queryByText("Your grown-up will be told.")).not.toBeInTheDocument();
+    await user.type(screen.getByLabelText("Reason for skipping"), "co-op day");
+    await user.click(screen.getByText("Skip Quest"));
+    expect(skipAssignment).toHaveBeenCalledWith("qa1", "co-op day");
+  });
+
+  it("will not skip without a reason, however hard the button is pressed", async () => {
+    const user = userEvent.setup();
+    render(<QuestAssignmentCard data={baseData} isChildView={true} allowChildSkip={true} />);
+    await user.click(screen.getByText("Skip"));
+    expect(screen.getByText("Skip Quest")).toBeDisabled();
+    await user.type(screen.getByLabelText("Reason for skipping"), "   ");
+    expect(screen.getByText("Skip Quest")).toBeDisabled();
+    expect(skipAssignment).not.toHaveBeenCalled();
+  });
+
+  it("will not set a quest aside as stuck without saying what went wrong", async () => {
+    const user = userEvent.setup();
+    render(<QuestAssignmentCard data={baseData} isChildView={true} />);
+    await user.click(screen.getByText("I'm Stuck"));
+    expect(screen.getByText("Get Help & Move On")).toBeDisabled();
+    await user.type(screen.getByLabelText("What you are stuck on"), "  ");
+    expect(screen.getByText("Get Help & Move On")).toBeDisabled();
+    expect(markAssignmentStuck).not.toHaveBeenCalled();
   });
 
   it("shows completed state", () => {
@@ -273,14 +297,29 @@ describe("QuestAssignmentCard", () => {
     expect(screen.queryByText("Edit Notes")).not.toBeInTheDocument();
   });
 
-  it("shows skipped state with notes", () => {
+  it("shows skipped state with the reason it was skipped for", () => {
     const data = {
       ...baseData,
-      assignment: { ...baseData.assignment, status: "skipped", notes: "Sick day" },
+      assignment: { ...baseData.assignment, status: "skipped", statusReason: "Sick day" },
     };
     render(<QuestAssignmentCard data={data} isChildView={false} />);
     expect(screen.getByText("Skipped: Sick day")).toBeInTheDocument();
     expect(screen.queryByText("Mark Done")).not.toBeInTheDocument();
+  });
+
+  it("never passes Scribe's Notes off as the reason a quest was skipped", () => {
+    const data = {
+      ...baseData,
+      assignment: {
+        ...baseData.assignment,
+        status: "skipped",
+        notes: "Read pages 50-75",
+        statusReason: "Sick day",
+      },
+    };
+    render(<QuestAssignmentCard data={data} isChildView={false} />);
+    expect(screen.getByText("Skipped: Sick day")).toBeInTheDocument();
+    expect(screen.queryByText(/Read pages 50-75/)).not.toBeInTheDocument();
   });
 
   it("offers a hero the stuck escape hatch even when skipping is switched off", () => {
@@ -313,7 +352,7 @@ describe("QuestAssignmentCard", () => {
   it("shows a stuck quest's reason, and gives the hero no buttons to press", () => {
     const stuck = {
       ...baseData,
-      assignment: { id: "qa1", status: "stuck", notes: "I got lost on step 3" },
+      assignment: { id: "qa1", status: "stuck", notes: null, statusReason: "I got lost on step 3" },
     };
     render(<QuestAssignmentCard data={stuck} isChildView={true} />);
     expect(screen.getByText(/Stuck — help is on the way: I got lost on step 3/)).toBeInTheDocument();
@@ -321,7 +360,7 @@ describe("QuestAssignmentCard", () => {
   });
 
   it("lets a grown-up finish, shelve or reopen a stuck quest", () => {
-    const stuck = { ...baseData, assignment: { id: "qa1", status: "stuck", notes: null } };
+    const stuck = { ...baseData, assignment: { id: "qa1", status: "stuck", notes: null, statusReason: null } };
     render(<QuestAssignmentCard data={stuck} isChildView={false} />);
     expect(screen.getByText(/Stuck — needs a grown-up/)).toBeInTheDocument();
     expect(screen.getByText("Mark Done")).toBeInTheDocument();
@@ -329,10 +368,21 @@ describe("QuestAssignmentCard", () => {
     expect(screen.getByText("Skip for Today")).toBeInTheDocument();
   });
 
+  it("asks a grown-up why before it shelves a stuck quest for the day", async () => {
+    const user = userEvent.setup();
+    const stuck = { ...baseData, assignment: { id: "qa1", status: "stuck", notes: null, statusReason: "I got lost on step 3" } };
+    render(<QuestAssignmentCard data={stuck} isChildView={false} />);
+    await user.click(screen.getByText("Skip for Today"));
+    expect(screen.getByText("Skip Quest")).toBeDisabled();
+    await user.type(screen.getByLabelText("Reason for skipping"), "we will sit down with it tomorrow");
+    await user.click(screen.getByText("Skip Quest"));
+    expect(skipAssignment).toHaveBeenCalledWith("qa1", "we will sit down with it tomorrow");
+  });
+
   it("keeps the undo of a completion away from the hero who marked it done", () => {
     const completed = {
       ...baseData,
-      assignment: { id: "qa1", status: "completed", notes: null },
+      assignment: { id: "qa1", status: "completed", notes: null, statusReason: null },
     };
     render(<QuestAssignmentCard data={completed} isChildView={true} />);
     expect(screen.queryByText("Not Done")).not.toBeInTheDocument();
@@ -342,14 +392,15 @@ describe("QuestAssignmentCard", () => {
     const user = userEvent.setup();
     const completed = {
       ...baseData,
-      assignment: { id: "qa1", status: "completed", notes: "all done!" },
+      assignment: { id: "qa1", status: "completed", notes: "all done!", statusReason: null },
     };
     render(<QuestAssignmentCard data={completed} isChildView={false} />);
     await user.click(screen.getByText("Not Done"));
     expect(
       screen.getByText(/Any XP and rewards it earned are returned/)
     ).toBeInTheDocument();
-    await user.type(screen.getByLabelText("Reason for the change"), "never opened the book");
+    expect(screen.getByText("Skip for Today")).toBeDisabled();
+    await user.type(screen.getByLabelText("Reason for skipping"), "never opened the book");
     await user.click(screen.getByText("Skip for Today"));
     expect(reviseAssignment).toHaveBeenCalledWith("qa1", "skipped", "never opened the book");
   });
@@ -358,7 +409,7 @@ describe("QuestAssignmentCard", () => {
     const user = userEvent.setup();
     const completed = {
       ...baseData,
-      assignment: { id: "qa1", status: "completed", notes: null },
+      assignment: { id: "qa1", status: "completed", notes: null, statusReason: null },
     };
     render(<QuestAssignmentCard data={completed} isChildView={false} />);
     await user.click(screen.getByText("Not Done"));
@@ -368,7 +419,7 @@ describe("QuestAssignmentCard", () => {
 
   it("lets a grown-up undo a skip", async () => {
     const user = userEvent.setup();
-    const skipped = { ...baseData, assignment: { id: "qa1", status: "skipped", notes: null } };
+    const skipped = { ...baseData, assignment: { id: "qa1", status: "skipped", notes: null, statusReason: null } };
     render(<QuestAssignmentCard data={skipped} isChildView={false} />);
     await user.click(screen.getByText("Undo Skip"));
     expect(reviseAssignment).toHaveBeenCalledWith("qa1", "pending", undefined);

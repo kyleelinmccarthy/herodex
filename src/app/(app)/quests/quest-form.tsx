@@ -231,15 +231,16 @@ export function QuestForm({
    * "I'm stuck" — the way past a quest a hero genuinely can't finish. It needs
    * no parent permission (skipping does): being unable to do the work and
    * being unable to move are different problems, and only the first is the
-   * hero's to sit with. A grown-up is alerted every time.
+   * hero's to sit with. A grown-up is alerted every time, and saying what went
+   * wrong is required — it is the part of that alert they can act on.
    */
   async function handleStuck() {
-    if (!activeQuestId) return;
+    if (!activeQuestId || stuckReason.trim() === "") return;
     setSaving(true);
     setError("");
     try {
       const assignmentId = await getOrCreateAssignment(activeQuestId);
-      await markAssignmentStuck(assignmentId, stuckReason.trim() || undefined);
+      await markAssignmentStuck(assignmentId, stuckReason.trim());
       setStuckReason("");
       setShowStuck(false);
       setDescription("");
@@ -398,12 +399,13 @@ export function QuestForm({
 
         {showStuck && (
           <div className="space-y-2 rounded-md border border-[var(--gold-border)]/50 bg-[rgba(201,168,76,0.06)] px-3 py-2">
-            <Label htmlFor="stuck-reason">What&apos;s got you stuck? (optional)</Label>
+            <Label htmlFor="stuck-reason">What&apos;s got you stuck?</Label>
             <Input
               id="stuck-reason"
               value={stuckReason}
               onChange={(e) => setStuckReason(e.target.value)}
               placeholder="e.g. I don't understand step 3"
+              required
             />
             <p className="text-xs text-muted-foreground">
               This quest moves aside for today and your grown-up is told, so they can come and help.
@@ -485,7 +487,7 @@ export function QuestForm({
                   setShowStuck(true);
                 }
               }}
-              disabled={saving || !activeQuest}
+              disabled={saving || !activeQuest || (showStuck && stuckReason.trim() === "")}
             >
               {saving && showStuck ? "Sending..." : showStuck ? "Get Help & Move On" : "I'm Stuck"}
             </Button>

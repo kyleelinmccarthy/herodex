@@ -15,7 +15,7 @@ type Subject = {
 };
 
 type AssignmentWithDetails = {
-  assignment: { id: string; status: string; notes: string | null };
+  assignment: { id: string; status: string; notes: string | null; statusReason: string | null };
   quest: {
     id: string;
     title: string;

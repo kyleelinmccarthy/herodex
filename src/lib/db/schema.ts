@@ -556,6 +556,11 @@ export const questAssignment = sqliteTable(
       .references(() => activityLog.id, { onDelete: "set null" }),
     completedAt: integer("completed_at", { mode: "timestamp" }),
     notes: text("notes"),
+    // Why the quest was set aside — a hero's "I'm stuck", or the reason it was
+    // skipped. Deliberately not filed in `notes`: Scribe's Notes are the record
+    // of work that was done, and they feed the learning log. A reason for not
+    // doing the work is a different claim and must never be able to pass as one.
+    statusReason: text("status_reason"),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   },

@@ -391,6 +391,9 @@ export async function completeAssignment(
       activityLogId: activityId,
       completedAt: now,
       notes: notes || null,
+      // Finishing settles whatever set the quest aside — a stuck quest a
+      // grown-up came and helped with is no longer stuck for any reason.
+      statusReason: null,
       updatedAt: now,
     })
     .where(eq(schema.questAssignment.id, assignmentId));
@@ -483,12 +486,32 @@ export async function updateAssignmentNotes(assignmentId: string, notes: string)
 }
 
 /**
+ * Setting a quest aside always has to say why, whoever does it and whichever
+ * way they do it. A row that reads only "Skipped" tells a grown-up that
+ * something happened and nothing about what to do next, and the alert built
+ * from it is worse — so the reason is a hard requirement, not a family
+ * setting: a reason that can be switched off is one that stops being written.
+ *
+ * It is kept apart from Scribe's Notes on purpose. Notes are the record of
+ * work that was done and they feed the learning log; a reason for not doing
+ * the work is a different claim and must never be filed as one.
+ */
+function requireStatusReason(reason: string | undefined, message: string): string {
+  const cleaned = reason ? sanitizeText(reason) : "";
+  if (!cleaned) throw new Error(message);
+  return cleaned;
+}
+
+const SKIP_REASON_REQUIRED = "Say why this quest is being skipped.";
+const STUCK_REASON_REQUIRED = "Say what's got you stuck, so a grown-up knows how to help.";
+
+/**
  * Skipping a quest is a grown-up decision by default. A parent can hand it to
  * a hero one child at a time (child.skipQuestsEnabled) — and whenever a hero
  * uses it, the grown-ups get an in-app alert, so "allowed" never quietly means
  * "unnoticed".
  */
-export async function skipAssignment(assignmentId: string, notes?: string) {
+export async function skipAssignment(assignmentId: string, reason: string) {
   const { access } = await requireAssignmentAccess(assignmentId, { write: true });
   const isChild = isChildActor(access);
   if (isChild) {
@@ -512,19 +535,21 @@ export async function skipAssignment(assignmentId: string, notes?: string) {
     await assertQuestUnlockedInStructuredMode(row.childId, row.date, row.questId, true);
   }
 
-  const note = notes ? sanitizeText(notes) : "";
+  const statusReason = requireStatusReason(reason, SKIP_REASON_REQUIRED);
   const now = new Date();
+  // `notes` is left alone: skipping produces no work to describe, and the
+  // reason belongs in its own column rather than overwriting a record of work.
   await db
     .update(schema.questAssignment)
     .set({
       status: "skipped",
-      notes: note || null,
+      statusReason,
       updatedAt: now,
     })
     .where(eq(schema.questAssignment.id, assignmentId));
 
   if (isChild) {
-    await recordQuestAlert(assignmentId, "quest_skipped", note);
+    await recordQuestAlert(assignmentId, "quest_skipped", statusReason);
   }
 }
 
@@ -538,7 +563,7 @@ export async function skipAssignment(assignmentId: string, notes?: string) {
  * It is not a free pass: the quest is not completed, no XP or reward is
  * granted, it stays out of the learning log, and the grown-ups can reopen it.
  */
-export async function markAssignmentStuck(assignmentId: string, notes?: string) {
+export async function markAssignmentStuck(assignmentId: string, reason: string) {
   const { access } = await requireAssignmentAccess(assignmentId, { write: true });
   const isChild = isChildActor(access);
 
@@ -566,17 +591,17 @@ export async function markAssignmentStuck(assignmentId: string, notes?: string) 
     await assertQuestUnlockedInStructuredMode(row.childId, row.date, row.questId, true);
   }
 
-  const note = notes ? sanitizeText(notes) : "";
+  const statusReason = requireStatusReason(reason, STUCK_REASON_REQUIRED);
   const now = new Date();
   await db
     .update(schema.questAssignment)
-    .set({ status: "stuck", notes: note || null, updatedAt: now })
+    .set({ status: "stuck", statusReason, updatedAt: now })
     .where(eq(schema.questAssignment.id, assignmentId));
 
   // An adult marking it stuck is the person the alert would be for, so only a
   // hero's own "I'm stuck" raises one.
   if (isChild) {
-    await recordQuestAlert(assignmentId, "quest_stuck", note);
+    await recordQuestAlert(assignmentId, "quest_stuck", statusReason);
   }
 }
 
@@ -596,7 +621,7 @@ export async function markAssignmentStuck(assignmentId: string, notes?: string) 
 export async function reviseAssignment(
   assignmentId: string,
   next: "pending" | "skipped",
-  notes?: string
+  reason?: string
 ) {
   const { access } = await requireAssignmentAccess(assignmentId, { write: true });
   if (isChildActor(access)) {
@@ -616,6 +641,12 @@ export async function reviseAssignment(
   const row = rows[0];
   if (!row) throw new Error("Assignment not found");
 
+  // Revising *to* skipped is a skip, so it owes a reason like any other. Going
+  // back to pending owes nothing — the quest is simply on the list again — and
+  // any reason it carried is no longer true of it.
+  const statusReason =
+    next === "skipped" ? requireStatusReason(reason, SKIP_REASON_REQUIRED) : null;
+
   const now = new Date();
 
   if (row.assignment.status === "completed") {
@@ -626,9 +657,9 @@ export async function reviseAssignment(
     .update(schema.questAssignment)
     .set({
       status: next,
-      // The old notes described work that is no longer on the record; the
-      // grown-up's reason (when they gave one) replaces them.
-      notes: (notes ? sanitizeText(notes) : "") || null,
+      // The old notes described work that is no longer on the record.
+      notes: null,
+      statusReason,
       activityLogId: null,
       completedAt: null,
       updatedAt: now,

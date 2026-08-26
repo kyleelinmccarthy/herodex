@@ -25,7 +25,10 @@ export type QuestAlertType = "quest_skipped" | "quest_stuck";
 export async function recordQuestAlert(
   assignmentId: string,
   type: QuestAlertType,
-  note?: string | null
+  /** Why the hero set the quest aside. Always given — skipping and getting
+   *  stuck both require a reason — and it is the part of the alert a grown-up
+   *  can actually act on. */
+  note: string
 ) {
   const rows = await db
     .select({
@@ -57,7 +60,7 @@ export async function recordQuestAlert(
     questTitle: row.questTitle,
     subjectName: row.subjectName,
     date: row.date,
-    note: note?.trim() || null,
+    note: note.trim() || null,
     createdAt: new Date(),
   });
 }
