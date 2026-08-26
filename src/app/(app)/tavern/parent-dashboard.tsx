@@ -79,17 +79,17 @@ export async function ParentDashboard({ allChildren }: { allChildren: ChildRow[]
 
       {/* Quests scheduled onto days their discipline isn't taught. Nothing else
           on this dashboard would show it: the assignments are generated as asked
-          and simply sink to the bottom of the hero's day with no time on them. */}
-      {perChild
-        .filter(({ scheduleGaps }) => scheduleGaps.length > 0)
-        .map(({ child, scheduleGaps }) => (
-          <ScheduleGapNotice
-            key={child.id}
-            gaps={scheduleGaps}
-            childId={child.id}
-            childName={allChildren.length > 1 ? child.displayName : undefined}
-          />
-        ))}
+          and simply sink to the bottom of the hero's day with no time on them.
+          One panel for the whole family — a frame per hero read as several
+          unrelated warnings that happened to share a title. */}
+      <ScheduleGapNotice
+        heroes={perChild.map(({ child, scheduleGaps }) => ({
+          gaps: scheduleGaps,
+          childId: child.id,
+          childName: allChildren.length > 1 ? child.displayName : undefined,
+        }))}
+        dismissible
+      />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <QuicklinkCard href="/scrolls" icon="mage" label="Create Assignment" />

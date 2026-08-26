@@ -16,6 +16,7 @@ import {
   setSchoolDays,
   setStreakOptionalDay,
   updateScheduleBlock,
+  updateScheduleSlotTime,
 } from "@/lib/actions/student-schedule";
 import {
   DAYS_OF_WEEK,
@@ -88,6 +89,38 @@ type Block = {
   startTime: string;
   endTime: string;
 };
+
+/** One period on the timetable, and every subject taught in it. */
+type Slot = {
+  /** Stable identity for a slot across re-renders: its time range. */
+  key: string;
+  startTime: string;
+  endTime: string;
+  blocks: Block[];
+};
+
+/**
+ * Collapses a day's blocks into the periods they actually occupy, earliest
+ * first, with the subjects inside each period in name order. Two subjects
+ * sharing a slot are one row on the timetable, not two rows that happen to
+ * print the same clock time.
+ */
+function groupIntoSlots(blocks: Block[], subjects: Subject[]): Slot[] {
+  const nameOf = (id: string) => subjects.find((s) => s.id === id)?.name ?? "";
+  const bySlot = new Map<string, Slot>();
+  for (const block of blocks) {
+    const key = `${block.startTime}-${block.endTime}`;
+    const slot = bySlot.get(key) ?? { key, startTime: block.startTime, endTime: block.endTime, blocks: [] };
+    slot.blocks.push(block);
+    bySlot.set(key, slot);
+  }
+  for (const slot of bySlot.values()) {
+    slot.blocks.sort((a, b) => nameOf(a.subjectId).localeCompare(nameOf(b.subjectId)));
+  }
+  return [...bySlot.values()].sort(
+    (a, b) => a.startTime.localeCompare(b.startTime) || a.endTime.localeCompare(b.endTime)
+  );
+}
 
 export function StudentScheduleEditor({
   childId,
@@ -220,22 +253,13 @@ function DayRow({
 }) {
   const router = useRouter();
   const [mode, setMode] = useState<"none" | "add" | "copy">("none");
-  const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
-  const [addSlot, setAddSlot] = useState<{ startTime: string; endTime: string } | null>(null);
+  const [editingSlot, setEditingSlot] = useState<string | null>(null);
+  const [addingToSlot, setAddingToSlot] = useState<string | null>(null);
   const [error, setError] = useState("");
-  // Subjects sharing a slot sort together, so a stacked morning block reads as
-  // one thing rather than two rows that happen to show the same time.
-  const sorted = [...blocks].sort(
-    (a, b) =>
-      a.startTime.localeCompare(b.startTime) ||
-      a.endTime.localeCompare(b.endTime) ||
-      (subjects.find((s) => s.id === a.subjectId)?.name ?? "").localeCompare(
-        subjects.find((s) => s.id === b.subjectId)?.name ?? ""
-      )
-  );
-  /** True when another class on this day occupies the exact same start/end time. */
-  const sharesSlot = (block: Block) =>
-    sorted.some((b) => b.id !== block.id && b.startTime === block.startTime && b.endTime === block.endTime);
+  // The day is kept as time slots, not as blocks: a slot that covers two
+  // subjects is one thing on the timetable, and listing it twice under the same
+  // clock time read as two classes running at once.
+  const slots = groupIntoSlots(blocks, subjects);
   const otherDays = DAYS_OF_WEEK.filter((d) => d !== day).map((d) => ({
     day: d,
     count: allBlocks.filter((b) => b.dayOfWeek === d).length,
@@ -251,22 +275,31 @@ function DayRow({
   }
 
   /** Only one form is open at a time, so an in-progress edit is never silently discarded. */
-  function startEditing(blockId: string) {
+  function startEditing(slotKey: string) {
     setMode("none");
-    setEditingBlockId(blockId);
+    setAddingToSlot(null);
+    setEditingSlot(slotKey);
     setError("");
   }
 
-  function startMode(next: "add" | "copy", slot: { startTime: string; endTime: string } | null = null) {
-    setEditingBlockId(null);
-    setAddSlot(slot);
+  function startAdding(slotKey: string) {
+    setMode("none");
+    setEditingSlot(null);
+    setAddingToSlot(slotKey);
+    setError("");
+  }
+
+  function startMode(next: "add" | "copy") {
+    setEditingSlot(null);
+    setAddingToSlot(null);
     setMode(next);
     setError("");
   }
 
   function closeForm() {
     setMode("none");
-    setAddSlot(null);
+    setEditingSlot(null);
+    setAddingToSlot(null);
   }
 
   return (
@@ -296,7 +329,7 @@ function DayRow({
           <h4 className="text-base font-medium">{DAY_LABELS[day]}</h4>
           {isSchoolDay && (
             <span className="text-xs text-muted-foreground">
-              ({sorted.length} class{sorted.length === 1 ? "" : "es"})
+              ({blocks.length} class{blocks.length === 1 ? "" : "es"})
             </span>
           )}
           {isSchoolDay && isOptionalDay && (
@@ -350,91 +383,119 @@ function DayRow({
               />
             </label>
           )}
-          {sorted.length === 0 && (
+          {slots.length === 0 && (
             <p className="text-sm text-muted-foreground">No classes scheduled.</p>
           )}
-          {sorted.map((block) => {
-            const subject = subjects.find((s) => s.id === block.subjectId);
-            if (editingBlockId === block.id) {
+          {slots.map((slot) => {
+            if (editingSlot === slot.key) {
               return (
-                <BlockForm
-                  key={block.id}
+                <SlotTimeForm
+                  key={slot.key}
                   childId={childId}
                   day={day}
+                  slot={slot}
                   subjects={subjects}
-                  block={block}
-                  existingBlocks={sorted.filter((b) => b.id !== block.id)}
-                  onDone={() => setEditingBlockId(null)}
+                  otherSlots={slots.filter((other) => other.key !== slot.key)}
+                  onDone={closeForm}
                   onError={setError}
                 />
               );
             }
             return (
               <div
-                key={block.id}
-                className="flex items-center gap-3 rounded-md border border-border/30 bg-background/40 px-3 py-2"
+                key={slot.key}
+                className="rounded-md border border-border/30 bg-background/40 px-3 py-2"
               >
-                <span
-                  className="size-3 shrink-0 rounded-full"
-                  style={{ backgroundColor: subject?.color ?? "#6b7280" }}
-                />
-                <span className="flex-1 text-sm">
-                  {subject?.name ?? "Unknown"}
-                  {sharesSlot(block) && (
-                    <span
-                      className="ml-1.5 text-[10px] text-muted-foreground"
-                      title="This time slot covers more than one subject"
-                    >
-                      shared slot
-                    </span>
-                  )}
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  {formatTimeOfDay(block.startTime)}&ndash;{formatTimeOfDay(block.endTime)}
-                </span>
-                {canEdit && (
-                  <>
-                    <Button
-                      size="xs"
-                      variant="ghost"
-                      className="text-muted-foreground hover:text-foreground"
-                      onClick={() => startMode("add", { startTime: block.startTime, endTime: block.endTime })}
-                      aria-label={`Add another subject to the ${formatTimeOfDay(block.startTime)} slot on ${DAY_LABELS[day]}`}
-                      title="Add another subject to this same time slot"
-                    >
-                      +
-                    </Button>
-                    <Button
-                      size="xs"
-                      variant="ghost"
-                      className="text-muted-foreground hover:text-foreground"
-                      onClick={() => startEditing(block.id)}
-                      aria-label={`Edit ${subject?.name ?? "class"} on ${DAY_LABELS[day]}`}
-                    >
-                      <svg
-                        className="size-3.5"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        strokeWidth={2}
+                <div className="flex items-center gap-3">
+                  {/* Every subject in the slot on one line — this is one class
+                      period that happens to cover more than one discipline. */}
+                  <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1">
+                    {slot.blocks.map((block) => {
+                      const subject = subjects.find((sub) => sub.id === block.subjectId);
+                      return (
+                        <span key={block.id} className="flex items-center gap-1.5">
+                          <span
+                            className="size-3 shrink-0 rounded-full"
+                            style={{ backgroundColor: subject?.color ?? "#6b7280" }}
+                          />
+                          <span className="text-sm">{subject?.name ?? "Unknown"}</span>
+                          {canEdit && slot.blocks.length > 1 && (
+                            <Button
+                              size="xs"
+                              variant="ghost"
+                              className="!px-1 text-muted-foreground hover:text-destructive"
+                              onClick={() => handleRemove(block.id)}
+                              aria-label={`Remove ${subject?.name ?? "class"} from the ${formatTimeOfDay(slot.startTime)} slot on ${DAY_LABELS[day]}`}
+                              title={`Remove ${subject?.name ?? "this subject"} from this slot`}
+                            >
+                              ×
+                            </Button>
+                          )}
+                        </span>
+                      );
+                    })}
+                  </div>
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    {formatTimeOfDay(slot.startTime)}&ndash;{formatTimeOfDay(slot.endTime)}
+                  </span>
+                  {canEdit && (
+                    <>
+                      <Button
+                        size="xs"
+                        variant="ghost"
+                        className="text-muted-foreground hover:text-foreground"
+                        onClick={() => startAdding(slot.key)}
+                        aria-label={`Add a subject to the ${formatTimeOfDay(slot.startTime)} slot on ${DAY_LABELS[day]}`}
+                        title="Add another subject to this time slot"
                       >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"
-                        />
-                      </svg>
-                    </Button>
-                    <Button
-                      size="xs"
-                      variant="ghost"
-                      className="text-muted-foreground hover:text-destructive"
-                      onClick={() => handleRemove(block.id)}
-                      aria-label={`Remove ${subject?.name ?? "class"} from ${DAY_LABELS[day]}`}
-                    >
-                      ×
-                    </Button>
-                  </>
+                        +
+                      </Button>
+                      <Button
+                        size="xs"
+                        variant="ghost"
+                        className="text-muted-foreground hover:text-foreground"
+                        onClick={() => startEditing(slot.key)}
+                        aria-label={`Edit the ${formatTimeOfDay(slot.startTime)} slot on ${DAY_LABELS[day]}`}
+                      >
+                        <svg
+                          className="size-3.5"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={2}
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"
+                          />
+                        </svg>
+                      </Button>
+                      <Button
+                        size="xs"
+                        variant="ghost"
+                        className="text-muted-foreground hover:text-destructive"
+                        onClick={() => slot.blocks.forEach((block) => handleRemove(block.id))}
+                        aria-label={`Remove the ${formatTimeOfDay(slot.startTime)} slot from ${DAY_LABELS[day]}`}
+                        title={slot.blocks.length > 1 ? "Remove this whole time slot" : "Remove this class"}
+                      >
+                        ×
+                      </Button>
+                    </>
+                  )}
+                </div>
+                {/* Adding to a slot only ever needs the subject — the time is
+                    already decided by the slot it's joining, so there's nothing
+                    to re-type and nothing to confirm. */}
+                {addingToSlot === slot.key && (
+                  <AddToSlotForm
+                    childId={childId}
+                    day={day}
+                    slot={slot}
+                    subjects={subjects}
+                    onDone={closeForm}
+                    onError={setError}
+                  />
                 )}
               </div>
             );
@@ -447,8 +508,7 @@ function DayRow({
                   childId={childId}
                   day={day}
                   subjects={subjects}
-                  existingBlocks={sorted}
-                  defaultSlot={addSlot}
+                  existingBlocks={blocks}
                   onDone={closeForm}
                   onError={setError}
                 />
@@ -462,7 +522,7 @@ function DayRow({
                   onError={setError}
                 />
               )}
-              {mode === "none" && editingBlockId === null && (
+              {mode === "none" && editingSlot === null && addingToSlot === null && (
                 <div className="flex gap-2">
                   <Button size="sm" variant="outline" onClick={() => startMode("add")}>
                     + Add Class
@@ -481,19 +541,236 @@ function DayRow({
 }
 
 /**
- * Adds a class, or edits one in place when `block` is given. In edit mode `existingBlocks`
- * excludes the block being edited, so it never conflicts with its own time slot.
+ * Drops another subject into a slot that already exists.
  *
- * `defaultSlot` pre-fills an existing slot's times — the "+" on a class row, for
- * stacking a second subject into a day that's already fully carved up.
+ * Deliberately just a subject picker: the period's time is settled by the slot
+ * it's joining, so there's nothing to re-type, nothing to get wrong, and
+ * nothing to confirm. Subjects already in the slot aren't offered, which is
+ * what the duplicate check used to catch after the fact.
+ */
+function AddToSlotForm({
+  childId,
+  day,
+  slot,
+  subjects,
+  onDone,
+  onError,
+}: {
+  childId: string;
+  day: DayOfWeek;
+  slot: Slot;
+  subjects: Subject[];
+  onDone: () => void;
+  onError: (msg: string) => void;
+}) {
+  const router = useRouter();
+  const taken = new Set(slot.blocks.map((b) => b.subjectId));
+  const available = subjects
+    .filter((s) => !taken.has(s.id))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const [subjectId, setSubjectId] = useState(available[0]?.id ?? "");
+  const [saving, setSaving] = useState(false);
+
+  if (available.length === 0) {
+    return (
+      <div className="mt-2 flex items-center justify-between gap-2 border-t border-border/30 pt-2">
+        <p className="text-xs text-muted-foreground">
+          Every discipline is already in this slot.
+        </p>
+        <Button size="xs" variant="ghost" type="button" onClick={onDone}>
+          Close
+        </Button>
+      </div>
+    );
+  }
+
+  async function handleAdd() {
+    if (!subjectId) return;
+    setSaving(true);
+    onError("");
+    try {
+      await createScheduleBlock(childId, {
+        subjectId,
+        dayOfWeek: day,
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+      });
+      router.refresh();
+      onDone();
+    } catch (err) {
+      onError(err instanceof Error ? err.message : "Failed to add subject to this slot");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-border/30 pt-2">
+      <Label className="text-xs text-muted-foreground">Also in this slot</Label>
+      <Select
+        value={subjectId}
+        onChange={(e) => setSubjectId(e.target.value)}
+        className="h-8 w-auto min-w-[9rem]"
+        aria-label={`Subject to add to the ${formatTimeOfDay(slot.startTime)} slot on ${DAY_LABELS[day]}`}
+      >
+        {available.map((s) => (
+          <option key={s.id} value={s.id}>
+            {s.name}
+          </option>
+        ))}
+      </Select>
+      <Button size="xs" type="button" disabled={saving} onClick={handleAdd}>
+        {saving ? "Adding..." : "Add"}
+      </Button>
+      <Button size="xs" variant="ghost" type="button" onClick={onDone}>
+        Cancel
+      </Button>
+    </div>
+  );
+}
+
+/**
+ * Retimes a slot, moving every subject in it together.
+ *
+ * When the slot holds a single class its subject can be swapped here too — the
+ * familiar "edit this class" shape. With two or more, changing subjects is what
+ * the per-subject × and the + are for, so this stays purely about the time.
+ */
+function SlotTimeForm({
+  childId,
+  day,
+  slot,
+  subjects,
+  otherSlots,
+  onDone,
+  onError,
+}: {
+  childId: string;
+  day: DayOfWeek;
+  slot: Slot;
+  subjects: Subject[];
+  otherSlots: Slot[];
+  onDone: () => void;
+  onError: (msg: string) => void;
+}) {
+  const router = useRouter();
+  const onlyBlock = slot.blocks.length === 1 ? slot.blocks[0] : null;
+  const sortedSubjects = [...subjects].sort((a, b) => a.name.localeCompare(b.name));
+  const [subjectId, setSubjectId] = useState(onlyBlock?.subjectId ?? "");
+  const [startTime, setStartTime] = useState(slot.startTime);
+  const [endTime, setEndTime] = useState(slot.endTime);
+  const [saving, setSaving] = useState(false);
+  const fieldId = `slot-${day}-${slot.key}`;
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (startTime >= endTime) {
+      onError("End time must be after start time.");
+      return;
+    }
+
+    // Same rule the server enforces, checked against the slots this one isn't
+    // part of, so the form never offers a move that's about to be refused.
+    const others = otherSlots.flatMap((other) => other.blocks);
+    for (const block of slot.blocks) {
+      const candidateSubject = onlyBlock ? subjectId : block.subjectId;
+      const conflict = findSlotConflict(others, { subjectId: candidateSubject, startTime, endTime });
+      if (conflict) {
+        const name = (id: string) => subjects.find((s) => s.id === id)?.name ?? "another class";
+        onError(
+          conflict.kind === "overlap"
+            ? `That overlaps part of ${name(conflict.block.subjectId)} (${formatTimeOfDay(conflict.block.startTime)}–${formatTimeOfDay(conflict.block.endTime)}). Use its exact start and end time to share the slot, or pick a free time.`
+            : `${name(candidateSubject)} is already in that time slot.`
+        );
+        return;
+      }
+    }
+
+    setSaving(true);
+    onError("");
+    try {
+      if (onlyBlock) {
+        await updateScheduleBlock(onlyBlock.id, { subjectId, startTime, endTime });
+      } else {
+        await updateScheduleSlotTime(childId, day, slot, { startTime, endTime });
+      }
+      writeLastTimeSlot(startTime, endTime);
+      router.refresh();
+      onDone();
+    } catch (err) {
+      onError(err instanceof Error ? err.message : "Failed to update this slot");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-3 rounded-md border border-border/30 bg-background/40 p-3">
+      {onlyBlock ? (
+        <div className="space-y-1">
+          <Label htmlFor={`${fieldId}-subject`} className="text-xs">Subject</Label>
+          <Select
+            id={`${fieldId}-subject`}
+            value={subjectId}
+            onChange={(e) => setSubjectId(e.target.value)}
+          >
+            {sortedSubjects.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </Select>
+        </div>
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          Moving this slot moves all {slot.blocks.length} disciplines in it together.
+        </p>
+      )}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1">
+          <Label htmlFor={`${fieldId}-start`} className="text-xs">Start</Label>
+          <Input
+            id={`${fieldId}-start`}
+            type="time"
+            value={startTime}
+            onChange={(e) => setStartTime(e.target.value)}
+            className="h-8"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor={`${fieldId}-end`} className="text-xs">End</Label>
+          <Input
+            id={`${fieldId}-end`}
+            type="time"
+            value={endTime}
+            onChange={(e) => setEndTime(e.target.value)}
+            className="h-8"
+          />
+        </div>
+      </div>
+      <div className="flex gap-2">
+        <Button size="sm" type="submit" disabled={saving}>
+          {saving ? "Saving..." : "Save"}
+        </Button>
+        <Button size="sm" variant="ghost" type="button" onClick={onDone}>
+          Cancel
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+/**
+ * Starts a brand-new period on this day. Editing an existing one is
+ * SlotTimeForm's job, and adding a subject to an existing one is
+ * AddToSlotForm's — both of which already know their time, so this is the only
+ * place a parent still types one in.
  */
 function BlockForm({
   childId,
   day,
   subjects,
   existingBlocks,
-  block,
-  defaultSlot = null,
   onDone,
   onError,
 }: {
@@ -501,20 +778,13 @@ function BlockForm({
   day: DayOfWeek;
   subjects: Subject[];
   existingBlocks: Block[];
-  block?: Block;
-  defaultSlot?: { startTime: string; endTime: string } | null;
   onDone: () => void;
   onError: (msg: string) => void;
 }) {
   const router = useRouter();
-  const isEditing = block !== undefined;
   const sortedSubjects = [...subjects].sort((a, b) => a.name.localeCompare(b.name));
-  const [subjectId, setSubjectId] = useState(block?.subjectId ?? sortedSubjects[0]?.id ?? "");
-  const [defaults] = useState(() =>
-    block
-      ? { startTime: block.startTime, endTime: block.endTime }
-      : defaultSlot ?? defaultTimeSlot(existingBlocks)
-  );
+  const [subjectId, setSubjectId] = useState(sortedSubjects[0]?.id ?? "");
+  const [defaults] = useState(() => defaultTimeSlot(existingBlocks));
   const [startTime, setStartTime] = useState(defaults.startTime);
   const [endTime, setEndTime] = useState(defaults.endTime);
   const [saving, setSaving] = useState(false);
@@ -529,54 +799,32 @@ function BlockForm({
       onError("End time must be after start time.");
       return;
     }
-    const subjectName = subjects.find((s) => s.id === subjectId)?.name ?? "This subject";
     const nameOf = (id: string) => subjects.find((s) => s.id === id)?.name ?? "another class";
 
     // Same rule the server enforces, so the form never offers a placement that
-    // is about to be refused.
+    // is about to be refused. Landing exactly on an existing slot is allowed and
+    // needs no confirming — it just joins that period, which is the same thing
+    // the "+" on the row does.
     const conflict = findSlotConflict(existingBlocks, { subjectId, startTime, endTime });
     if (conflict) {
       const other = conflict.block;
       onError(
         conflict.kind === "overlap"
           ? `That overlaps part of ${nameOf(other.subjectId)} (${formatTimeOfDay(other.startTime)}–${formatTimeOfDay(other.endTime)}). Use its exact start and end time to share the slot, or pick a free time.`
-          : `${subjectName} is already in this time slot.`
+          : `${nameOf(subjectId)} is already in this time slot.`
       );
       return;
-    }
-
-    // Sharing a slot is a real choice, not a mistake — but it should never be
-    // reached by a typo in the time fields, so name what it's joining.
-    const slotMate = existingBlocks.find((b) => b.startTime === startTime && b.endTime === endTime);
-    if (slotMate) {
-      if (
-        !confirm(
-          `${formatTimeOfDay(startTime)}–${formatTimeOfDay(endTime)} already covers ${nameOf(slotMate.subjectId)}. Share the slot with ${subjectName}?`
-        )
-      ) {
-        return;
-      }
-    } else if (existingBlocks.some((b) => b.subjectId === subjectId) && subjectId !== block?.subjectId) {
-      const verb = isEditing ? "Move this slot to it anyway?" : "Add it again?";
-      if (!confirm(`${subjectName} is already scheduled on ${DAY_LABELS[day]}. ${verb}`)) {
-        return;
-      }
     }
 
     setSaving(true);
     onError("");
     try {
-      if (block) {
-        await updateScheduleBlock(block.id, { subjectId, startTime, endTime });
-      } else {
-        await createScheduleBlock(childId, { subjectId, dayOfWeek: day, startTime, endTime });
-        writeLastTimeSlot(startTime, endTime);
-      }
+      await createScheduleBlock(childId, { subjectId, dayOfWeek: day, startTime, endTime });
+      writeLastTimeSlot(startTime, endTime);
       router.refresh();
       onDone();
     } catch (err) {
-      const fallback = isEditing ? "Failed to update class" : "Failed to add class";
-      onError(err instanceof Error ? err.message : fallback);
+      onError(err instanceof Error ? err.message : "Failed to add class");
     } finally {
       setSaving(false);
     }
@@ -585,8 +833,12 @@ function BlockForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-3 rounded-md border border-border/30 bg-background/40 p-3">
       <div className="space-y-1">
-        <Label className="text-xs">Subject</Label>
-        <Select value={subjectId} onChange={(e) => setSubjectId(e.target.value)}>
+        <Label htmlFor={`new-${day}-subject`} className="text-xs">Subject</Label>
+        <Select
+          id={`new-${day}-subject`}
+          value={subjectId}
+          onChange={(e) => setSubjectId(e.target.value)}
+        >
           {sortedSubjects.map((s) => (
             <option key={s.id} value={s.id}>
               {s.name}
@@ -596,17 +848,29 @@ function BlockForm({
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1">
-          <Label className="text-xs">Start</Label>
-          <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="h-8" />
+          <Label htmlFor={`new-${day}-start`} className="text-xs">Start</Label>
+          <Input
+            id={`new-${day}-start`}
+            type="time"
+            value={startTime}
+            onChange={(e) => setStartTime(e.target.value)}
+            className="h-8"
+          />
         </div>
         <div className="space-y-1">
-          <Label className="text-xs">End</Label>
-          <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} className="h-8" />
+          <Label htmlFor={`new-${day}-end`} className="text-xs">End</Label>
+          <Input
+            id={`new-${day}-end`}
+            type="time"
+            value={endTime}
+            onChange={(e) => setEndTime(e.target.value)}
+            className="h-8"
+          />
         </div>
       </div>
       <div className="flex gap-2">
         <Button size="sm" type="submit" disabled={saving}>
-          {saving ? (isEditing ? "Saving..." : "Adding...") : isEditing ? "Save" : "Add"}
+          {saving ? "Adding..." : "Add"}
         </Button>
         <Button size="sm" variant="ghost" type="button" onClick={onDone}>
           Cancel

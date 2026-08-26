@@ -72,7 +72,9 @@ export default async function SchedulePage({
 
       {/* Scheduled quests whose discipline has no class time on the days they
           come up. Named here because this page is where the gap gets closed. */}
-      {!isChildView && <ScheduleGapNotice gaps={scheduleGaps} showFixLink={false} />}
+      {!isChildView && (
+        <ScheduleGapNotice heroes={[{ gaps: scheduleGaps }]} showFixLink={false} />
+      )}
 
       {subjects.length === 0 ? (
         <GameFrame>

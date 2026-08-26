@@ -222,6 +222,62 @@ export async function updateScheduleBlock(
     .where(eq(schema.scheduleBlock.id, blockId));
 }
 
+/**
+ * Retimes every class sharing one time slot, together.
+ *
+ * A slot with two subjects can't be moved a block at a time: the first update
+ * lands on the new time while its slot-mate is still on the old one, and the
+ * two then partially overlap — so the move rejects itself halfway through.
+ * Validating the destination once, against only the blocks *outside* the slot,
+ * is the only way a shared slot can be dragged anywhere at all.
+ */
+export async function updateScheduleSlotTime(
+  childId: string,
+  dayOfWeek: DayOfWeek,
+  slot: { startTime: string; endTime: string },
+  next: { startTime: string; endTime: string }
+) {
+  const { access } = await requireChildAccess(childId, { write: true });
+  await assertCanEditScheduleContent(childId, access);
+
+  if (!isValidTime(next.startTime) || !isValidTime(next.endTime)) {
+    throw new Error("Times must be in HH:mm format.");
+  }
+  if (next.startTime >= next.endTime) {
+    throw new Error("End time must be after start time.");
+  }
+
+  const sameDay = await db
+    .select({
+      id: schema.scheduleBlock.id,
+      subjectId: schema.scheduleBlock.subjectId,
+      startTime: schema.scheduleBlock.startTime,
+      endTime: schema.scheduleBlock.endTime,
+    })
+    .from(schema.scheduleBlock)
+    .where(and(eq(schema.scheduleBlock.childId, childId), eq(schema.scheduleBlock.dayOfWeek, dayOfWeek)));
+
+  const inSlot = sameDay.filter(
+    (b) => b.startTime === slot.startTime && b.endTime === slot.endTime
+  );
+  if (inSlot.length === 0) throw new Error("That time slot no longer exists.");
+
+  const others = sameDay.filter(
+    (b) => !(b.startTime === slot.startTime && b.endTime === slot.endTime)
+  );
+  for (const block of inSlot) {
+    assertSlotIsFree(others, block.subjectId, next.startTime, next.endTime);
+  }
+
+  const now = new Date();
+  for (const block of inSlot) {
+    await db
+      .update(schema.scheduleBlock)
+      .set({ startTime: next.startTime, endTime: next.endTime, updatedAt: now })
+      .where(eq(schema.scheduleBlock.id, block.id));
+  }
+}
+
 export async function copyScheduleBlocks(childId: string, fromDay: DayOfWeek, toDay: DayOfWeek) {
   const { access } = await requireChildAccess(childId, { write: true });
   await assertCanEditScheduleContent(childId, access);

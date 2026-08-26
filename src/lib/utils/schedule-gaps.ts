@@ -169,6 +169,28 @@ export function findSubjectScheduleGaps(params: {
   return [...bySubject.values()].sort((a, b) => a.subjectName.localeCompare(b.subjectName));
 }
 
+/**
+ * A stable fingerprint of a set of gaps — what a parent is actually dismissing
+ * when they clear the notice.
+ *
+ * Built from who, which discipline and which days, deliberately *not* from the
+ * wording or the quest list: another quest joining a gap they've already
+ * acknowledged is the same warning and should stay dismissed, while a new
+ * discipline or a newly-uncovered day is a different one and has to come back.
+ */
+export function scheduleGapSignature(
+  entries: { childId?: string; gaps: SubjectScheduleGap[] }[]
+): string {
+  return entries
+    .flatMap((entry) =>
+      entry.gaps.map(
+        (gap) => `${entry.childId ?? ""}:${gap.subjectId}:${gap.missingDays.join(",")}`
+      )
+    )
+    .sort()
+    .join("|");
+}
+
 /** Weekdays each subject has at least one class block on, keyed by subject id. */
 export function buildBlockDaysBySubject(
   blocks: { subjectId: string; dayOfWeek: string }[]
